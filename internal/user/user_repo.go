@@ -1,7 +1,7 @@
 package user
 
 import (
-	// ต้อง import "models" ที่เราสร้างไว้
+	"context"
 	"github.com/Luemax58/be-fe-project/pkg/models"
 
 	"gorm.io/gorm"
@@ -11,11 +11,9 @@ import (
 // (คุณ A ทำเรื่อง User/Room, คุณ B ทำเรื่อง Billing/Booking)
 // นี่คือ "สัญญา" ที่ Service (Logic) จะมาเรียกใช้
 type IUserRepository interface {
-	// 1. (สำหรับ Register/Login)
-	GetUserByUsername(username string) (*models.User, error)
-	// 2. (สำหรับ Register)
-	CreateUser(user *models.User) error
-	GetUserByID(id uint) (*models.User, error)
+	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+    CreateUser(ctx context.Context, user *models.User) error
+    GetUserByID(ctx context.Context, id uint) (*models.User, error)
 	// TODO (ของคุณ A):
 	// GetUserByID(id uint) (*models.User, error)
 	// UpdateUser(user *models.User) error
@@ -43,33 +41,26 @@ func NewUserRepository(db *gorm.DB) IUserRepository {
 // ----------------------------------------------------
 
 // 1. GetUserByUsername
-func (r *userRepository) GetUserByUsername(username string) (*models.User, error) {
-	var user models.User
-
-	// GORM: "SELECT * FROM users WHERE username = ? LIMIT 1"
-	// First() จะคืน error 'record not found' ถ้าไม่เจอ
-	if err := r.db.Where("username = ?", username).First(&user).Error; err != nil {
-		return nil, err // คืนค่า user เปล่า และ error
-	}
-
-	return &user, nil // คืนค่า user ที่เจอ และ nil error
+func (r *userRepository) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
+    var user models.User
+    // (3) เพิ่ม .WithContext(ctx) ต่อท้าย .db
+    // นี่คือการ "ส่งต่อ" ตัวจับเวลาให้ GORM
+    if err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error; err != nil {
+        return nil, err
+    }
+    return &user, nil
 }
 
 // 2. CreateUser
-func (r *userRepository) CreateUser(user *models.User) error {
-	// GORM: "INSERT INTO users (...) VALUES (...)"
-	// Create() จะจัดการเรื่องนี้ทั้งหมด และจะคืน error ถ้า insert ไม่ได้
-	if err := r.db.Create(&user).Error; err != nil {
-		return err
-	}
-
-	return nil // สำเร็จ
+func (r *userRepository) CreateUser(ctx context.Context, user *models.User) error {
+    // (4) เพิ่ม .WithContext(ctx)
+    return r.db.WithContext(ctx).Create(user).Error
 }
 
-func (r *userRepository) GetUserByID(id uint) (*models.User, error) {
+func (r *userRepository) GetUserByID(ctx context.Context, id uint) (*models.User, error) {
     var user models.User
-    // GORM: "SELECT * FROM users WHERE user_id = ?"
-    if err := r.db.Where("user_id = ?", id).First(&user).Error; err != nil {
+    // (5) เพิ่ม .WithContext(ctx)
+    if err := r.db.WithContext(ctx).Where("user_id = ?", id).First(&user).Error; err != nil {
         return nil, err
     }
     return &user, nil

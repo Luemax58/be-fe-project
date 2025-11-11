@@ -1,6 +1,7 @@
 package user
 
 import (
+	"context"
 	"fmt"
 	"os" // <--- เพิ่ม
 	"time" // <--- เพิ่ม
@@ -13,9 +14,9 @@ import (
 
 // IUserService คือ "เมนู" ที่บอกว่า Service ทำอะไรได้บ้าง
 type IUserService interface {
-	Register(username, password, fullName, phone, role string) (*models.User, error)
-	Login(string, string) (string, error)
-	GetUserProfile(id uint) (*models.User, error)
+	Register(ctx context.Context, username, password, fullName, phone, role string) (*models.User, error)
+    Login(ctx context.Context, username, password string) (string, error)
+    GetUserProfile(ctx context.Context, id uint) (*models.User, error)
 }
 
 // ----------------------------------------------------
@@ -34,36 +35,39 @@ func NewUserService(repo IUserRepository) IUserService {
 // VVVV "สมอง" ของการ Register VVVV (อันนี้ของคุณถูกต้องอยู่แล้ว)
 // ----------------------------------------------------
 
-func (s *userService) Register(username, password, fullName, phone, role string) (*models.User, error) {
-	// 1. ตรวจสอบ Username
-	_, err := s.userRepo.GetUserByUsername(username)
-	if err == nil {
-		return nil, fmt.Errorf("username '%s' already exists", username)
-	}
-	if err != gorm.ErrRecordNotFound {
-		return nil, fmt.Errorf("database error: %w", err)
-	}
+func (s *userService) Register(ctx context.Context, username, password, fullName, phone, role string) (*models.User, error) {
 
-	// 2. Hashing
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash password: %w", err)
-	}
+    // (3) ส่ง ctx ต่อไปให้ Repo
+    _, err := s.userRepo.GetUserByUsername(ctx, username)
 
-	// 3. เตรียม User
-	newUser := &models.User{
-		Username:     username,
-		PasswordHash: string(hashedPassword),
-		FullName:     fullName,
-		Phone:        &phone,
-		Role:         role,
-	}
+    if err == nil {
+        return nil, fmt.Errorf("username '%s' already exists", username)
+    }
+    if err != gorm.ErrRecordNotFound {
+        return nil, fmt.Errorf("database error: %w", err)
+    }
 
-	// 4. บันทึก
-	if err := s.userRepo.CreateUser(newUser); err != nil {
-		return nil, fmt.Errorf("failed to create user: %w", err)
-	}
-	return newUser, nil
+    // (Hashing ไม่ต้องใช้ ctx เพราะมันทำงานใน CPU, ไม่เกี่ยวกับ DB)
+    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+    if err != nil {
+        return nil, fmt.Errorf("failed to hash password: %w", err)
+    }
+
+    newUser := &models.User{
+        // ... (เหมือนเดิม) ...
+        Username:     username,
+        PasswordHash: string(hashedPassword),
+        FullName:     fullName,
+        Phone:        &phone,
+        Role:         role,
+    }
+
+    // (4) ส่ง ctx ต่อไปให้ Repo
+    if err := s.userRepo.CreateUser(ctx, newUser); err != nil {
+        return nil, fmt.Errorf("failed to create user: %w", err)
+    }
+
+    return newUser, nil
 }
 
 
@@ -71,27 +75,27 @@ func (s *userService) Register(username, password, fullName, phone, role string)
 // VVVV นี่คือฟังก์ชัน "Login" ที่ขาดหายไป (Error ที่ 3) VVVV
 // ----------------------------------------------------
 
-func (s *userService) Login(username string, password string) (string, error) {
-	
-	// 1. หา User ด้วย Username
-	user, err := s.userRepo.GetUserByUsername(username)
-	if err != nil {
-		return "", fmt.Errorf("invalid username or password")
-	}
+func (s *userService) Login(ctx context.Context, username string, password string) (string, error) {
 
-	// 2. เปรียบเทียบรหัสผ่าน
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
-	if err != nil {
-		return "", fmt.Errorf("invalid username or password")
-	}
+    // (5) ส่ง ctx ต่อไปให้ Repo
+    user, err := s.userRepo.GetUserByUsername(ctx, username)
+    if err != nil {
+        return "", fmt.Errorf("invalid username or password")
+    }
 
-	// 3. ถ้าทุกอย่างถูกต้อง -> สร้าง Token
-	tokenString, err := generateJWT(user)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate token: %w", err)
-	}
+    // (Compare Hashing ไม่ต้องใช้ ctx)
+    err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+    if err != nil {
+        return "", fmt.Errorf("invalid username or password")
+    }
 
-	return tokenString, nil
+    // (Generate JWT ไม่ต้องใช้ ctx)
+    tokenString, err := generateJWT(user)
+    if err != nil {
+        return "", fmt.Errorf("failed to generate token: %w", err)
+    }
+
+    return tokenString, nil
 }
 
 // ----------------------------------------------------
@@ -125,10 +129,10 @@ func generateJWT(user *models.User) (string, error) {
 	return tokenString, nil
 }
 
-func (s *userService) GetUserProfile(id uint) (*models.User, error) {
-    user, err := s.userRepo.GetUserByID(id)
+func (s *userService) GetUserProfile(ctx context.Context, id uint) (*models.User, error) {
+    // (6) ส่ง ctx ต่อไปให้ Repo
+    user, err := s.userRepo.GetUserByID(ctx, id)
     if err != nil {
-        // ถ้า gorm.ErrRecordNotFound
         return nil, fmt.Errorf("user not found")
     }
     return user, nil

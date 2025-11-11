@@ -69,6 +69,7 @@ func (h *userHandler) Register(c *gin.Context) {
 	// 2. สั่ง Service
 	// (ตอนนี้ `newUser` จะเป็น `*models.User` ที่ Go รู้จักแล้ว)
 	newUser, err := h.userService.Register(
+		c.Request.Context(), 
 		req.Username,
 		req.Password,
 		req.FullName,
@@ -104,7 +105,7 @@ func (h *userHandler) Login(c *gin.Context) {
 	}
 
 	// 2. สั่ง Service
-	tokenString, err := h.userService.Login(req.Username, req.Password)
+	tokenString, err := h.userService.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -126,7 +127,7 @@ func (h *userHandler) GetMyProfile(c *gin.Context) {
     }
 
     // 2. สั่ง Service ให้ไปหา User
-    user, err := h.userService.GetUserProfile(userID.(uint))
+    user, err := h.userService.GetUserProfile(c.Request.Context(), userID.(uint))
     if err != nil {
         c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
         return
