@@ -1,15 +1,11 @@
 package main
 
 import (
-	"log"
-
-	"github.com/gin-gonic/gin"
-
-	// (อย่าลืมเปลี่ยน [username]/[repo-name] เป็นของคุณ)
-	"github.com/Luemax58/be-fe-project/pkg/database"
-
-	// Import "user" (ที่จะดึง Repo, Service, Handler)
-	"github.com/Luemax58/be-fe-project/internal/user"
+    "log"
+    "github.com/gin-gonic/gin"
+    "github.com/Luemax58/be-fe-project/pkg/database"
+    "github.com/Luemax58/be-fe-project/internal/user"
+    "github.com/Luemax58/be-fe-project/internal/middleware"
 )
 
 func main() {
@@ -40,18 +36,29 @@ func main() {
 	// TODO: เพื่อนคุณจะมาสร้าง bookingRepo, bookingService, bookingHandler ที่นี่
 
 	// 4. ตั้งค่า API Routes
-	api := r.Group("/api/v1")
+
+	// -- Group 1: Public Routes (ไม่ต้องใช้ Token) --
+	public := r.Group("/api/v1")
 	{
-		// API ของคุณ A (User)
-		api.POST("/register", userHandler.Register)
-		// TODO: api.POST("/login", userHandler.Login)
-		// TODO: api.GET("/users", ...)
+		public.POST("/register", userHandler.Register)
+		public.POST("/login", userHandler.Login)
+	}
 
-		// API ของคุณ A (Room)
-		// TODO: api.GET("/rooms", ...)
+	// -- Group 2: Protected Routes (ต้องใช้ Token) --
+	protected := r.Group("/api/v1")
 
-		// API ของคน B (Booking)
-		// TODO: api.POST("/bookings", ...)
+	// VVVV สั่งให้ Group นี้ "ทั้งหมด" ต้องผ่าน "ด่านตรวจ" ก่อน VVVV
+	protected.Use(middleware.AuthMiddleware()) 
+	{
+		// /api/v1/users/me
+		protected.GET("/users/me", userHandler.GetMyProfile)
+
+		// TODO: (ของคุณ A)
+		// protected.GET("/rooms", roomHandler.GetAllRooms)
+		// protected.POST("/rooms", roomHandler.CreateRoom)
+
+		// TODO: (ของคน B)
+		// protected.POST("/bookings", bookingHandler.CreateBooking)
 	}
 
 	// 5. รัน Server

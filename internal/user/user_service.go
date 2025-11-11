@@ -1,29 +1,27 @@
 package user
 
 import (
-	// 1. Import library bcrypt
 	"fmt"
+	"os" // <--- เพิ่ม
+	"time" // <--- เพิ่ม
 
 	"golang.org/x/crypto/bcrypt"
-
-	// 2. Import repo และ models ของเรา
-	// (อย่าลืมเปลี่ยน [username]/[repo-name] เป็นของคุณ)
+	"github.com/golang-jwt/jwt/v5" // <--- เพิ่ม
 	"github.com/Luemax58/be-fe-project/pkg/models"
 	"gorm.io/gorm"
 )
 
 // IUserService คือ "เมนู" ที่บอกว่า Service ทำอะไรได้บ้าง
 type IUserService interface {
-	// รับข้อมูลสำหรับสมัคร (เราจะเพิ่ม Login ที่นี่ทีหลัง)
 	Register(username, password, fullName, phone, role string) (*models.User, error)
-	// TODO: Login(username, password) (*string, error) // (คืน token)
+	Login(string, string) (string, error)
+	GetUserProfile(id uint) (*models.User, error)
 }
 
 // ----------------------------------------------------
 
 // userService คือ struct "พ่อครัว" ที่ทำงานจริง
 type userService struct {
-	// มันต้องคุยกับ DB ได้, เลยต้องมี repo
 	userRepo IUserRepository
 }
 
@@ -33,52 +31,105 @@ func NewUserService(repo IUserRepository) IUserService {
 }
 
 // ----------------------------------------------------
-// VVVV นี่คือ "สมอง" ของการ Register VVVV
+// VVVV "สมอง" ของการ Register VVVV (อันนี้ของคุณถูกต้องอยู่แล้ว)
 // ----------------------------------------------------
 
 func (s *userService) Register(username, password, fullName, phone, role string) (*models.User, error) {
-
-	// 1. (Logic) ตรวจสอบว่ามี username นี้ในระบบหรือยัง
+	// 1. ตรวจสอบ Username
 	_, err := s.userRepo.GetUserByUsername(username)
-
 	if err == nil {
-		// ถ้า err == nil (ไม่มี Error) -> แปลว่า "เจอ"
 		return nil, fmt.Errorf("username '%s' already exists", username)
 	}
-
-	// ถ้า err != nil (มี Error) ... ให้เช็กก่อนว่าเป็น Error "ที่ไม่เจอ" รึเปล่า
 	if err != gorm.ErrRecordNotFound {
-		// ถ้าเป็น Error อื่น (เช่น DB ดับ) -> ให้พัง
 		return nil, fmt.Errorf("database error: %w", err)
 	}
 
-	// ถ้ามาถึงตรงนี้ได้... แปลว่า err คือ gorm.ErrRecordNotFound
-	// (ซึ่งแปลว่า Username ว่าง -> ดี!) ... ให้ทำงานต่อได้เลย
-
-	// 2. (Logic) HASH + SALT รหัสผ่าน
-	// นี่คือขั้นตอนที่ "ยุ่งยาก" ที่คุณถามถึง... ซึ่งมีแค่บรรทัดเดียว!
+	// 2. Hashing
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// 3. (Logic) เตรียมข้อมูล User object เพื่อลง DB
+	// 3. เตรียม User
 	newUser := &models.User{
 		Username:     username,
-		PasswordHash: string(hashedPassword), // <--- นี่คือ Hash+Salt
+		PasswordHash: string(hashedPassword),
 		FullName:     fullName,
-		Phone:        &phone, // (ใช้ & เพราะ Phone เป็น *string (nullable))
+		Phone:        &phone,
 		Role:         role,
 	}
 
-	// (ถ้าคุณเลือก "ลบ" column password_salt, GORM จะไม่ยุ่งกับมันเลย)
-	// (ถ้าคุณเลือก "ทำให้ NULL", GORM ก็จะใส่ NULL ให้)
-
-	// 4. (Logic) สั่ง Repo ให้บันทึก
+	// 4. บันทึก
 	if err := s.userRepo.CreateUser(newUser); err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
-
-	// 5. คืนค่า User ที่เพิ่งสร้างเสร็จ (เผื่อ Handler อยากเอาไปใช้)
 	return newUser, nil
+}
+
+
+// ----------------------------------------------------
+// VVVV นี่คือฟังก์ชัน "Login" ที่ขาดหายไป (Error ที่ 3) VVVV
+// ----------------------------------------------------
+
+func (s *userService) Login(username string, password string) (string, error) {
+	
+	// 1. หา User ด้วย Username
+	user, err := s.userRepo.GetUserByUsername(username)
+	if err != nil {
+		return "", fmt.Errorf("invalid username or password")
+	}
+
+	// 2. เปรียบเทียบรหัสผ่าน
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+	if err != nil {
+		return "", fmt.Errorf("invalid username or password")
+	}
+
+	// 3. ถ้าทุกอย่างถูกต้อง -> สร้าง Token
+	tokenString, err := generateJWT(user)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	return tokenString, nil
+}
+
+// ----------------------------------------------------
+// VVVV นี่คือฟังก์ชัน "generateJWT" ที่ขาดหายไป VVVV
+// ----------------------------------------------------
+
+func generateJWT(user *models.User) (string, error) {
+	// 1. ดึง Secret Key จาก .env
+	secretKey := os.Getenv("JWT_SECRET_KEY")
+	if secretKey == "" {
+		return "", fmt.Errorf("JWT_SECRET_KEY is not set")
+	}
+
+	// 2. สร้าง "Claims" (ข้อมูลในบัตร)
+	claims := jwt.MapClaims{
+		"user_id": user.UserID,
+		"role":    user.Role,
+		"exp":     time.Now().Add(time.Hour * 72).Unix(), // หมดอายุใน 3 วัน
+		"iat":     time.Now().Unix(),                      // ออกบัตรเมื่อ
+	}
+
+	// 3. สร้าง Token
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// 4. "เซ็น" Token ด้วย Secret Key
+	tokenString, err := token.SignedString([]byte(secretKey))
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
+}
+
+func (s *userService) GetUserProfile(id uint) (*models.User, error) {
+    user, err := s.userRepo.GetUserByID(id)
+    if err != nil {
+        // ถ้า gorm.ErrRecordNotFound
+        return nil, fmt.Errorf("user not found")
+    }
+    return user, nil
 }

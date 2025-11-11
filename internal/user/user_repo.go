@@ -15,7 +15,7 @@ type IUserRepository interface {
 	GetUserByUsername(username string) (*models.User, error)
 	// 2. (สำหรับ Register)
 	CreateUser(user *models.User) error
-
+	GetUserByID(id uint) (*models.User, error)
 	// TODO (ของคุณ A):
 	// GetUserByID(id uint) (*models.User, error)
 	// UpdateUser(user *models.User) error
@@ -64,4 +64,13 @@ func (r *userRepository) CreateUser(user *models.User) error {
 	}
 
 	return nil // สำเร็จ
+}
+
+func (r *userRepository) GetUserByID(id uint) (*models.User, error) {
+    var user models.User
+    // GORM: "SELECT * FROM users WHERE user_id = ?"
+    if err := r.db.Where("user_id = ?", id).First(&user).Error; err != nil {
+        return nil, err
+    }
+    return &user, nil
 }
