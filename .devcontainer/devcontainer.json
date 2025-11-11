@@ -1,4 +1,9 @@
 {
-	"image": "mcr.microsoft.com/devcontainers/universal:2",
-	"postCreateCommand": "sudo apt-get update && sudo apt-get install -y mysql-server"
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y mysql-server && sudo service mysql start",
+  "mounts": [
+    // บอกให้ Codespace สร้าง "Volume ถาวร" ชื่อ mysqldata
+    // แล้ว "เชื่อม" มันเข้ากับโฟลเดอร์ที่ MySQL เก็บข้อมูลจริง
+    "source=mysqldata,target=/var/lib/mysql,type=volume"
+  ]
 }
