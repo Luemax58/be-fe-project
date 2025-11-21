@@ -5,19 +5,6 @@ SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+07:00";
 
-
--- =================================================================
--- 2. DROP TABLES (In reverse order of dependency)
--- =================================================================
-DROP TABLE IF EXISTS `payments`;
-DROP TABLE IF EXISTS `maintenance_requests`;
-DROP TABLE IF EXISTS `announcements`;
-DROP TABLE IF EXISTS `leases`;
-DROP TABLE IF EXISTS `monthly_billing`;
-DROP TABLE IF EXISTS `rooms`;
-DROP TABLE IF EXISTS `users`;
-
-
 -- =================================================================
 -- 3. CREATE TABLES
 -- =================================================================
@@ -27,7 +14,6 @@ CREATE TABLE `users` (
   `user_id` INT(11) NOT NULL AUTO_INCREMENT,
   `username` VARCHAR(50) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
-  `password_salt` VARCHAR(255),
   `full_name` VARCHAR(100) NOT NULL,
   `phone` VARCHAR(15) DEFAULT NULL,
   `role` ENUM('owner', 'tenant') NOT NULL DEFAULT 'tenant',
@@ -133,48 +119,48 @@ CREATE TABLE `announcements` (
 -- =================================================================
 
 -- ข้อมูล: Users (1 เจ้าของ + 39 ผู้เช่า)
-INSERT INTO `users` (`user_id`, `username`, `password_hash`, `password_salt`, `full_name`, `phone`, `role`) VALUES
-(1, 'owner01', 'hash_ของเจ้าของ_xyz', 'salt_ของเจ้าของ_abc', 'สมชาย ใจดี (เจ้าของ)', '0810001111', 'owner');
+INSERT INTO `users` (`user_id`, `username`, `password_hash`, `full_name`, `phone`, `role`) VALUES
+(1, 'owner01', 'hash_ของเจ้าของ_xyz', 'สมชาย ใจดี (เจ้าของ)', '0810001111', 'owner');
 INSERT INTO `users` (`username`, `password_hash`, `password_salt`, `full_name`, `phone`, `role`) VALUES
-('tenant001', 'hash001', 'salt001', 'สมหญิง จริงใจ', '0810000001', 'tenant'),
-('tenant002', 'hash002', 'salt002', 'สมศักดิ์ รักสงบ', '0810000002', 'tenant'),
-('tenant003', 'hash003', 'salt003', 'มานี มีนา', '0810000003', 'tenant'),
-('tenant004', 'hash004', 'salt004', 'ปิติ ชูใจ', '0810000004', 'tenant'),
-('tenant005', 'hash005', 'salt005', 'อาทิตย์ จันทร์เพ็ญ', '0810000005', 'tenant'),
-('tenant006', 'hash006', 'salt006', 'วิไล พรรณราย', '0810000006', 'tenant'),
-('tenant007', 'hash007', 'salt007', 'กวินทร์ อินทร์กอง', '0810000007', 'tenant'),
-('tenant008', 'hash008', 'salt008', 'นที สีดา', '0810000008', 'tenant'),
-('tenant009', 'hash009', 'salt009', 'ธารา วาริน', '0810000009', 'tenant'),
-('tenant010', 'hash010', 'salt010', 'เอกพล คนขยัน', '0810000010', 'tenant'),
-('tenant011', 'hash011', 'salt011', 'จิราพร ออนซอน', '0810000011', 'tenant'),
-('tenant012', 'hash012', 'salt012', 'ทินกร ก่อนเที่ยง', '0810000012', 'tenant'),
-('tenant013', 'hash013', 'salt013', 'มรกต อัญมณี', '0810000013', 'tenant'),
-('tenant014', 'hash014', 'salt014', 'เพทาย สายไหม', '0810000014', 'tenant'),
-('tenant015', 'hash015', 'salt015', 'บุษราคัม คำหวาน', '0810000015', 'tenant'),
-('tenant016', 'hash016', 'salt016', 'ไพลิน ถิ่นไทย', '0810000016', 'tenant'),
-('tenant017', 'hash017', 'salt017', 'โกเมน เอกชัย', '0810000017', 'tenant'),
-('tenant018', 'hash018', 'salt018', 'นิลกาฬ ชาตรี', '0810000018', 'tenant'),
-('tenant019', 'hash019', 'salt019', 'เพชรรัตน์ มงคล', '0810000019', 'tenant'),
-('tenant020', 'hash020', 'salt020', 'ทับทิม สยาม', '0810000020', 'tenant'),
-('tenant021', 'hash021', 'salt021', 'วิเชียร มาศวิไล', '0810000021', 'tenant'),
-('tenant022', 'hash022', 'salt022', 'สุริยา จันทรา', '0810000022', 'tenant'),
-('tenant023', 'hash023', 'salt023', 'ดวงดาว พร่างพราว', '0810000023', 'tenant'),
-('tenant024', 'hash024', 'salt024', 'ฟ้าใส ใจสบาย', '0810000024', 'tenant'),
-('tenant025', 'hash025', 'salt025', 'อรุณ รุ่งเรือง', '0810000025', 'tenant'),
-('tenant026', 'hash026', 'salt026', 'สายัณห์ ตะวันฉาย', '0810000026', 'tenant'),
-('tenant027', 'hash027', 'salt027', 'ราตรี มีสุข', '0810000027', 'tenant'),
-('tenant028', 'hash028', 'salt028', 'วสันต์ ฤดูดี', '0810000028', 'tenant'),
-('tenant029', 'hash029', 'salt029', 'เหมันต์ วันหนาว', '0810000029', 'tenant'),
-('tenant030', 'hash030', 'salt030', 'คิมหันต์ แสนร้อน', '0810000030', 'tenant'),
-('tenant031', 'hash031', 'salt031', 'พิรุณ กรุณา', '0810000031', 'tenant'),
-('tenant032', 'hash032', 'salt032', 'เมฆา พาฝน', '0810000032', 'tenant'),
-('tenant033', 'hash033', 'salt033', 'สายลม อ่อนโยน', '0810000033', 'tenant'),
-('tenant034', 'hash034', 'salt034', 'ปฐพี คงทน', '0810000034', 'tenant'),
-('tenant035', 'hash035', 'salt035', 'อัคคี ร้อนแรง', '0810000035', 'tenant'),
-('tenant036', 'hash036', 'salt036', 'วายุ พัดพา', '0810000036', 'tenant'),
-('tenant037', 'hash037', 'salt037', 'ชลธี ไหลริน', '0810000037', 'tenant'),
-('tenant038', 'hash038', 'salt038', 'พนาไพร เขียวขจี', '0810000038', 'tenant'),
-('tenant039', 'hash039', 'salt039', 'ภูผา สูงใหญ่', '0810000039', 'tenant');
+('tenant001', 'hash001', 'สมหญิง จริงใจ', '0810000001', 'tenant'),
+('tenant002', 'hash002', 'สมศักดิ์ รักสงบ', '0810000002', 'tenant'),
+('tenant003', 'hash003', 'มานี มีนา', '0810000003', 'tenant'),
+('tenant004', 'hash004', 'ปิติ ชูใจ', '0810000004', 'tenant'),
+('tenant005', 'hash005', 'อาทิตย์ จันทร์เพ็ญ', '0810000005', 'tenant'),
+('tenant006', 'hash006', 'วิไล พรรณราย', '0810000006', 'tenant'),
+('tenant007', 'hash007', 'กวินทร์ อินทร์กอง', '0810000007', 'tenant'),
+('tenant008', 'hash008', 'นที สีดา', '0810000008', 'tenant'),
+('tenant009', 'hash009', 'ธารา วาริน', '0810000009', 'tenant'),
+('tenant010', 'hash010', 'เอกพล คนขยัน', '0810000010', 'tenant'),
+('tenant011', 'hash011', 'จิราพร ออนซอน', '0810000011', 'tenant'),
+('tenant012', 'hash012', 'ทินกร ก่อนเที่ยง', '0810000012', 'tenant'),
+('tenant013', 'hash013', 'มรกต อัญมณี', '0810000013', 'tenant'),
+('tenant014', 'hash014', 'เพทาย สายไหม', '0810000014', 'tenant'),
+('tenant015', 'hash015', 'บุษราคัม คำหวาน', '0810000015', 'tenant'),
+('tenant016', 'hash016', 'ไพลิน ถิ่นไทย', '0810000016', 'tenant'),
+('tenant017', 'hash017', 'โกเมน เอกชัย', '0810000017', 'tenant'),
+('tenant018', 'hash018', 'นิลกาฬ ชาตรี', '0810000018', 'tenant'),
+('tenant019', 'hash019', 'เพชรรัตน์ มงคล', '0810000019', 'tenant'),
+('tenant020', 'hash020', 'ทับทิม สยาม', '0810000020', 'tenant'),
+('tenant021', 'hash021', 'วิเชียร มาศวิไล', '0810000021', 'tenant'),
+('tenant022', 'hash022', 'สุริยา จันทรา', '0810000022', 'tenant'),
+('tenant023', 'hash023', 'ดวงดาว พร่างพราว', '0810000023', 'tenant'),
+('tenant024', 'hash024', 'ฟ้าใส ใจสบาย', '0810000024', 'tenant'),
+('tenant025', 'hash025', 'อรุณ รุ่งเรือง', '0810000025', 'tenant'),
+('tenant026', 'hash026', 'สายัณห์ ตะวันฉาย', '0810000026', 'tenant'),
+('tenant027', 'hash027', 'ราตรี มีสุข', '0810000027', 'tenant'),
+('tenant028', 'hash028', 'วสันต์ ฤดูดี', '0810000028', 'tenant'),
+('tenant029', 'hash029', 'เหมันต์ วันหนาว', '0810000029', 'tenant'),
+('tenant030', 'hash030', 'คิมหันต์ แสนร้อน', '0810000030', 'tenant'),
+('tenant031', 'hash031', 'พิรุณ กรุณา', '0810000031', 'tenant'),
+('tenant032', 'hash032', 'เมฆา พาฝน', '0810000032', 'tenant'),
+('tenant033', 'hash033', 'สายลม อ่อนโยน', '0810000033', 'tenant'),
+('tenant034', 'hash034', 'ปฐพี คงทน', '0810000034', 'tenant'),
+('tenant035', 'hash035', 'อัคคี ร้อนแรง', '0810000035', 'tenant'),
+('tenant036', 'hash036', 'วายุ พัดพา', '0810000036', 'tenant'),
+('tenant037', 'hash037', 'ชลธี ไหลริน', '0810000037', 'tenant'),
+('tenant038', 'hash038', 'พนาไพร เขียวขจี', '0810000038', 'tenant'),
+('tenant039', 'hash039', 'ภูผา สูงใหญ่', '0810000039', 'tenant');
 
 -- ข้อมูล: Rooms (40 ห้อง)
 -- (ผูกผู้เช่า user_id 2 ถึง 40 เข้ากับห้อง room_id 1 ถึง 39)
