@@ -30,6 +30,11 @@ services:
     image: mysql:8.0
     # ตั้งชื่อเล่นให้ container นี้ (จำเป็นสำหรับ DB_HOST)
     hostname: mysql-db
+    environment:
+      MYSQL_ROOT_PASSWORD: Lue5548
+      MYSQL_DATABASE: mydatabase
+    ports:
+      - "3306:3306"
     # "อ่าน" ค่าจาก .env เพื่อตั้งรหัสผ่านและสร้าง DB
     env_file:
       - .env
