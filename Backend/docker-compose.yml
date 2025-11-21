@@ -1,0 +1,54 @@
+# docker-compose.yml
+# "บริการ" หรือ "กล่อง" ที่เราต้องการ
+services:
+
+  # 1. กล่อง Go API ของเรา
+  app:
+    # สั่งให้ "สร้าง" (build) จาก Dockerfile ที่เราเพิ่งทำ
+    build: .
+    # ตั้งค่า port (ซ้าย = เครื่อง host, ขวา = ใน container)
+    ports:
+      - "8080:8080"
+    # "อ่าน" ค่าจากไฟล์ .env เพื่อฉีดเข้า environment
+    env_file:
+      - .env
+    # "รอ" ให้กล่อง 'db' พร้อมใช้งานก่อน ค่อยสตาร์ทกล่อง 'app'
+    depends_on:
+      db:
+        condition: service_healthy
+    # (นี่คือ Healthcheck ที่อาจารย์สอนเป๊ะๆ)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s # ให้เวลา Go API สตาร์ท 20 วินาที
+
+  # 2. กล่อง Database (MySQL)
+  db:
+    # "ดึง" (pull) image สำเร็จรูปของ MySQL 8
+    image: mysql:8.0
+    # ตั้งชื่อเล่นให้ container นี้ (จำเป็นสำหรับ DB_HOST)
+    hostname: mysql-db
+    environment:
+      MYSQL_ROOT_PASSWORD: Lue5548
+      MYSQL_DATABASE: mydatabase
+    ports:
+      - "3306:3306"
+    # "อ่าน" ค่าจาก .env เพื่อตั้งรหัสผ่านและสร้าง DB
+    env_file:
+      - .env
+    # "เชื่อม" Volume (ที่เก็บข้อมูลถาวร)
+    # นี่คือวิธีที่ถูกต้องในการเก็บข้อมูล DB ครับ!
+    volumes:
+      - dbdata:/var/lib/mysql
+    # ตรวจสอบว่า MySQL สตาร์ทสำเร็จหรือยัง
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DB_USER}", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# สร้าง "ที่เก็บข้อมูลถาวร" (Volume)
+volumes:
+  dbdata:
