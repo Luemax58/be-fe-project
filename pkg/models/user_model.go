@@ -5,7 +5,6 @@ type User struct {
 	UserID       uint    `gorm:"primaryKey;autoIncrement"`
 	Username     string  `gorm:"type:varchar(50);unique;not null"`
 	PasswordHash string  `gorm:"column:password_hash;type:varchar(255);not null"`
-	PasswordSalt string  `gorm:"column:password_salt;type:varchar(255);not null"`
 	FullName     string  `gorm:"type:varchar(100);not null"`
 	Phone        *string `gorm:"type:varchar(15)"` // ใช้ pointer *string สำหรับ field ที่ nullable
 	Role         string  `gorm:"type:enum('owner','tenant');default:'tenant';not null"`
