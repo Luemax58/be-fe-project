@@ -7,7 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	// (2) VVVV Import "บ้าน" ใหม่ของเราทั้งหมด VVVV
+	"github.com/Luemax58/be-fe-project/internal/billing"
 	"github.com/Luemax58/be-fe-project/internal/health"
+	"github.com/Luemax58/be-fe-project/internal/maintenance"
 	"github.com/Luemax58/be-fe-project/internal/middleware"
 	"github.com/Luemax58/be-fe-project/internal/room"
 	"github.com/Luemax58/be-fe-project/internal/user"
@@ -50,6 +52,12 @@ func main() {
 	roomService := room.NewRoomService(roomRepo)
 	roomHandler := room.NewRoomHandler(roomService)
 
+	// --- (ส่วนของ billing) ---
+	billingHandler := billing.NewBillingHandler(db)
+
+	// --- (ส่วนของ maintenance) ---
+	maintenanceHandler := maintenance.NewMaintenanceHandler(db)
+
 	// 4. ตั้งค่า Middleware (Global)
 	// (ตาม Best Practice ของอาจารย์: ใช้ Timeout Middleware)
 	r.Use(middleware.TimeoutMiddleware(10 * time.Second))
@@ -77,6 +85,22 @@ func main() {
 			// Room Routes (ที่เราเพิ่งทำเสร็จ!)
 			protected.GET("/rooms", roomHandler.GetAllRooms)
 			// TODO: protected.POST("/rooms", roomHandler.CreateRoom)
+
+			billing := protected.Group("/billing")
+			{
+				billing.POST("/invoices/generate", billingHandler.GenerateInvoices)
+				billing.POST("/utilities/record", billingHandler.RecordUtilityUsage)
+				billing.POST("/payments/record", billingHandler.RecordPayment)
+				// billing.GET("/history", handler.GetBillingHistory)
+			}
+
+			maint := protected.Group("/maintenance")
+			{
+				maint.POST("/creates", maintenanceHandler.CreateMaintenanceRequest)
+				// maint.PUT("/update/:id", handler.UpdateMaintenanceStatus)
+				maint.GET("/requests", maintenanceHandler.ListMaintenanceRequests)
+			}
+
 		}
 	}
 
