@@ -3,6 +3,7 @@ module github.com/Luemax58/be-fe-project
 go 1.24.3
 
 require (
+	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.11.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/joho/godotenv v1.5.1
@@ -17,7 +18,10 @@ require (
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
+<<<<<<< HEAD
 	github.com/gin-contrib/cors v1.7.6 // indirect
+=======
+>>>>>>> 87cbe87 (Move backend code into Backend folder and update logic)
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect

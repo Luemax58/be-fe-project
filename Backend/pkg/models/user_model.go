@@ -1,3 +1,4 @@
+
 package models
 
 // User maps to the `users` table
