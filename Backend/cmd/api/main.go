@@ -4,6 +4,7 @@ import (
 	"log"
 	"time" // (1) เพิ่ม
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
 	// (2) VVVV Import "บ้าน" ใหม่ของเราทั้งหมด VVVV
@@ -34,6 +35,7 @@ func main() {
 	// (ตาม Best Practice ของอาจารย์: ใช้ ReleaseMode ใน Production)
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
+	r.Use(cors.Default())
 
 	// 3. VVVV "เดินสายไฟ" (Dependency Injection) VVVV
 	// นี่คือ "หัวใจ" ที่ตรงกับหลักการ DIP (BookStore) ของอาจารย์เป๊ะๆ

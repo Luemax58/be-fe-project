@@ -121,7 +121,7 @@ CREATE TABLE `announcements` (
 -- ข้อมูล: Users (1 เจ้าของ + 39 ผู้เช่า)
 INSERT INTO `users` (`user_id`, `username`, `password_hash`, `full_name`, `phone`, `role`) VALUES
 (1, 'owner01', 'hash_ของเจ้าของ_xyz', 'สมชาย ใจดี (เจ้าของ)', '0810001111', 'owner');
-INSERT INTO `users` (`username`, `password_hash`, `password_salt`, `full_name`, `phone`, `role`) VALUES
+INSERT INTO `users` (`username`, `password_hash`, `full_name`, `phone`, `role`) VALUES
 ('tenant001', 'hash001', 'สมหญิง จริงใจ', '0810000001', 'tenant'),
 ('tenant002', 'hash002', 'สมศักดิ์ รักสงบ', '0810000002', 'tenant'),
 ('tenant003', 'hash003', 'มานี มีนา', '0810000003', 'tenant'),
