@@ -33,8 +33,4 @@ go.work.sum
 
 # Environment & IDE
 # .env
-<<<<<<< HEAD
 .vscode/
-=======
-.vscode/
->>>>>>> 87cbe87 (Move backend code into Backend folder and update logic)

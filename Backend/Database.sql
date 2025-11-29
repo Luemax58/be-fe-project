@@ -4,14 +4,26 @@
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+07:00";
+SET FOREIGN_KEY_CHECKS = 0; -- ปิดการเช็ก FK ชั่วคราว
 
 -- =================================================================
--- 3. CREATE TABLES
+-- 2. DROP OLD TABLES (ล้างบาง)
+-- =================================================================
+DROP TABLE IF EXISTS `announcements`;
+DROP TABLE IF EXISTS `maintenance_requests`;
+DROP TABLE IF EXISTS `payments`;
+DROP TABLE IF EXISTS `leases`;
+DROP TABLE IF EXISTS `monthly_billing`;
+DROP TABLE IF EXISTS `rooms`;
+DROP TABLE IF EXISTS `users`;
+
+-- =================================================================
+-- 3. CREATE TABLES (แก้ Type เป็น BIGINT UNSIGNED ตาม GORM)
 -- =================================================================
 
--- ตาราง 1: ผู้ใช้ (Users)
+-- ตาราง 1: Users
 CREATE TABLE `users` (
-  `user_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, -- แก้เป็น BIGINT UNSIGNED
   `username` VARCHAR(50) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
   `full_name` VARCHAR(100) NOT NULL,
@@ -21,13 +33,13 @@ CREATE TABLE `users` (
   UNIQUE KEY `username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ตาราง 2: ห้องพัก (Rooms)
+-- ตาราง 2: Rooms
 CREATE TABLE `rooms` (
-  `room_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `room_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, -- แก้
   `room_number` VARCHAR(10) NOT NULL,
   `floor` INT(3) DEFAULT NULL,
   `status` ENUM('available', 'occupied', 'maintenance') NOT NULL DEFAULT 'available',
-  `tenant_id` INT(11) DEFAULT NULL COMMENT 'ID ผู้เช่าปัจจุบัน (อัปเดตจาก leases)',
+  `tenant_id` BIGINT UNSIGNED DEFAULT NULL, -- แก้ให้ตรงกับ user_id
   `base_rent` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   `furniture_fee` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   PRIMARY KEY (`room_id`),
@@ -36,31 +48,31 @@ CREATE TABLE `rooms` (
   CONSTRAINT `rooms_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ตาราง 3: บิลรายเดือน (Monthly Billing - Utilities)
+-- ตาราง 3: Monthly Billing
 CREATE TABLE `monthly_billing` (
-  `billing_id` INT(11) NOT NULL AUTO_INCREMENT,
-  `room_id` INT(11) NOT NULL,
-  `billing_month` DATE NOT NULL COMMENT 'บิลประจำเดือน (เช่น 2025-11-01)',
-  `due_date` DATE DEFAULT NULL COMMENT 'วันครบกำหนดชำระ',
+  `billing_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, -- แก้
+  `room_id` BIGINT UNSIGNED NOT NULL, -- แก้ให้ตรงกับ room_id
+  `billing_month` DATE NOT NULL,
+  `due_date` DATE DEFAULT NULL,
   `water_units` DECIMAL(10,2) DEFAULT 0.00,
   `electricity_units` DECIMAL(10,2) DEFAULT 0.00,
   `water_bill` DECIMAL(10,2) DEFAULT 0.00,
   `electricity_bill` DECIMAL(10,2) DEFAULT 0.00,
-  `total_utility_bill` DECIMAL(10,2) DEFAULT 0.00 COMMENT 'ยอดรวม (น้ำ+ไฟ)',
+  `total_utility_bill` DECIMAL(10,2) DEFAULT 0.00,
   `status` ENUM('unpaid', 'paid', 'overdue') NOT NULL DEFAULT 'unpaid',
   PRIMARY KEY (`billing_id`),
   KEY `room_id` (`room_id`),
   CONSTRAINT `billing_ibfk_1` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`room_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ตาราง 4: (ใหม่) สัญญาเช่า (Leases)
+-- ตาราง 4: Leases
 CREATE TABLE `leases` (
-  `lease_id` INT(11) NOT NULL AUTO_INCREMENT,
-  `room_id` INT(11) NOT NULL,
-  `tenant_id` INT(11) NOT NULL,
-  `start_date` DATE NOT NULL COMMENT 'วันเริ่มสัญญา',
-  `end_date` DATE NOT NULL COMMENT 'วันสิ้นสุดสัญญา',
-  `security_deposit` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'ค่ามัดจำ',
+  `lease_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, -- แก้
+  `room_id` BIGINT UNSIGNED NOT NULL,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
+  `start_date` DATE NOT NULL,
+  `end_date` DATE NOT NULL,
+  `security_deposit` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   `status` ENUM('active', 'expired', 'terminated') NOT NULL DEFAULT 'active',
   PRIMARY KEY (`lease_id`),
   KEY `room_id` (`room_id`),
@@ -69,13 +81,13 @@ CREATE TABLE `leases` (
   CONSTRAINT `leases_ibfk_2` FOREIGN KEY (`tenant_id`) REFERENCES `users` (`user_id`) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ตาราง 5: (ใหม่) การชำระเงิน (Payments)
+-- ตาราง 5: Payments
 CREATE TABLE `payments` (
-  `payment_id` INT(11) NOT NULL AUTO_INCREMENT,
-  `billing_id` INT(11) NOT NULL COMMENT 'อ้างอิงบิลค่าน้ำค่าไฟ',
-  `tenant_id` INT(11) NOT NULL,
+  `payment_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, -- แก้
+  `billing_id` BIGINT UNSIGNED NOT NULL,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `amount_paid` DECIMAL(10,2) NOT NULL,
-  `payment_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'วันที่และเวลาที่จ่าย',
+  `payment_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `payment_method` ENUM('cash', 'transfer') NOT NULL,
   `notes` VARCHAR(255) DEFAULT NULL,
   PRIMARY KEY (`payment_id`),
@@ -85,15 +97,15 @@ CREATE TABLE `payments` (
   CONSTRAINT `payments_ibfk_2` FOREIGN KEY (`tenant_id`) REFERENCES `users` (`user_id`) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ตาราง 6: (ใหม่) การแจ้งซ่อม (Maintenance Requests)
+-- ตาราง 6: Maintenance Requests
 CREATE TABLE `maintenance_requests` (
-  `request_id` INT(11) NOT NULL AUTO_INCREMENT,
-  `room_id` INT(11) NOT NULL,
-  `tenant_id` INT(11) NOT NULL,
-  `issue_description` TEXT NOT NULL COMMENT 'รายละเอียดปัญหา',
-  `request_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'วันที่แจ้ง',
+  `request_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, -- แก้
+  `room_id` BIGINT UNSIGNED NOT NULL,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
+  `issue_description` TEXT NOT NULL,
+  `request_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `status` ENUM('pending', 'in_progress', 'completed') NOT NULL DEFAULT 'pending',
-  `repair_cost` DECIMAL(10,2) DEFAULT 0.00 COMMENT 'ค่าซ่อม (ถ้ามี)',
+  `repair_cost` DECIMAL(10,2) DEFAULT 0.00,
   PRIMARY KEY (`request_id`),
   KEY `room_id` (`room_id`),
   KEY `tenant_id` (`tenant_id`),
@@ -101,10 +113,10 @@ CREATE TABLE `maintenance_requests` (
   CONSTRAINT `maint_ibfk_2` FOREIGN KEY (`tenant_id`) REFERENCES `users` (`user_id`) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ตาราง 7: (ใหม่) ประกาศ (Announcements)
+-- ตาราง 7: Announcements
 CREATE TABLE `announcements` (
-  `announcement_id` INT(11) NOT NULL AUTO_INCREMENT,
-  `user_id` INT(11) NOT NULL COMMENT 'ผู้ประกาศ (เจ้าของ)',
+  `announcement_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, -- แก้
+  `user_id` BIGINT UNSIGNED NOT NULL, -- แก้ให้ตรงกับ user_id
   `title` VARCHAR(255) NOT NULL,
   `content` TEXT NOT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -113,14 +125,13 @@ CREATE TABLE `announcements` (
   CONSTRAINT `anno_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
 -- =================================================================
--- 4. INSERT DATA
+-- 4. INSERT DATA (ข้อมูลเหมือนเดิม)
 -- =================================================================
 
--- ข้อมูล: Users (1 เจ้าของ + 39 ผู้เช่า)
+-- Users
 INSERT INTO `users` (`user_id`, `username`, `password_hash`, `full_name`, `phone`, `role`) VALUES
-(1, 'owner01', 'hash_ของเจ้าของ_xyz', 'สมชาย ใจดี (เจ้าของ)', '0810001111', 'owner');
+(1, 'owner01', 'hash_temp', 'สมชาย ใจดี (เจ้าของ)', '0810001111', 'owner');
 INSERT INTO `users` (`username`, `password_hash`, `full_name`, `phone`, `role`) VALUES
 ('tenant001', 'hash001', 'สมหญิง จริงใจ', '0810000001', 'tenant'),
 ('tenant002', 'hash002', 'สมศักดิ์ รักสงบ', '0810000002', 'tenant'),
@@ -162,8 +173,7 @@ INSERT INTO `users` (`username`, `password_hash`, `full_name`, `phone`, `role`) 
 ('tenant038', 'hash038', 'พนาไพร เขียวขจี', '0810000038', 'tenant'),
 ('tenant039', 'hash039', 'ภูผา สูงใหญ่', '0810000039', 'tenant');
 
--- ข้อมูล: Rooms (40 ห้อง)
--- (ผูกผู้เช่า user_id 2 ถึง 40 เข้ากับห้อง room_id 1 ถึง 39)
+-- Rooms
 INSERT INTO `rooms` (`room_id`, `room_number`, `floor`, `status`, `tenant_id`, `base_rent`, `furniture_fee`) VALUES
 (1, '101', 1, 'occupied', 2, 4500.00, 500.00),
 (2, '102', 1, 'occupied', 3, 4500.00, 500.00),
@@ -206,7 +216,7 @@ INSERT INTO `rooms` (`room_id`, `room_number`, `floor`, `status`, `tenant_id`, `
 (39, '804', 8, 'occupied', 40, 8000.00, 0.00),
 (40, '805', 8, 'available', NULL, 8000.00, 0.00);
 
--- ข้อมูล: Monthly Billing (ครบ 39 บิล)
+-- Monthly Billing
 INSERT INTO `monthly_billing` (`billing_id`, `room_id`, `billing_month`, `due_date`, `water_units`, `electricity_units`, `water_bill`, `electricity_bill`, `total_utility_bill`, `status`) VALUES
 (1, 1, '2025-11-01', '2025-11-05', 10.0, 120.0, 180.00, 840.00, 1020.00, 'overdue'),
 (2, 2, '2025-11-01', '2025-11-30', 8.0, 90.0, 144.00, 630.00, 774.00, 'paid'),
@@ -248,8 +258,7 @@ INSERT INTO `monthly_billing` (`billing_id`, `room_id`, `billing_month`, `due_da
 (38, 38, '2025-11-01', '2025-11-30', 10.0, 100.0, 180.00, 700.00, 880.00, 'unpaid'),
 (39, 39, '2025-11-01', '2025-11-05', 13.0, 160.0, 234.00, 1120.00, 1354.00, 'overdue');
 
--- ข้อมูล: Leases (39 สัญญา)
--- (สมมติว่าทุกคนมีสัญญา 1 ปี และจ่ายค่ามัดจำ = 2 * ค่าเช่าห้อง)
+-- Leases
 INSERT INTO `leases` (`lease_id`, `room_id`, `tenant_id`, `start_date`, `end_date`, `security_deposit`, `status`) VALUES
 (1, 1, 2, '2025-01-01', '2025-12-31', 9000.00, 'active'),
 (2, 2, 3, '2025-01-01', '2025-12-31', 9000.00, 'active'),
@@ -291,8 +300,7 @@ INSERT INTO `leases` (`lease_id`, `room_id`, `tenant_id`, `start_date`, `end_dat
 (38, 38, 39, '2025-08-01', '2026-07-31', 16000.00, 'active'),
 (39, 39, 40, '2025-08-01', '2026-07-31', 16000.00, 'active');
 
--- ข้อมูล: Payments (15 รายการ, สำหรับบิลที่ 'paid')
--- (สมมติว่าจ่ายค่าน้ำค่าไฟ ตามยอด total_utility_bill)
+-- Payments
 INSERT INTO `payments` (`payment_id`, `billing_id`, `tenant_id`, `amount_paid`, `payment_date`, `payment_method`, `notes`) VALUES
 (1, 2, 3, 774.00, '2025-11-02 10:30:00', 'transfer', 'โอนจาก KBank'),
 (2, 6, 7, 1108.00, '2025-11-02 11:15:00', 'cash', 'จ่ายเงินสดที่ออฟฟิศ'),
@@ -310,20 +318,20 @@ INSERT INTO `payments` (`payment_id`, `billing_id`, `tenant_id`, `amount_paid`, 
 (14, 35, 36, 1670.00, '2025-11-07 11:00:00', 'transfer', 'SCB'),
 (15, 37, 38, 686.00, '2025-11-08 13:00:00', 'transfer', 'เรียบร้อย');
 
--- ข้อมูล: Maintenance Requests (4 รายการ)
+-- Maintenance Requests
 INSERT INTO `maintenance_requests` (`request_id`, `room_id`, `tenant_id`, `issue_description`, `request_date`, `status`, `repair_cost`) VALUES
 (1, 1, 2, 'ก๊อกน้ำรั่วซึมที่อ่างล้างหน้า','2025-11-01 09:00:00', 'pending', 0.00),
 (2, 6, 7, 'แอร์ไม่เย็นเลยครับ', '2025-11-03 14:00:00', 'in_progress', 0.00),
 (3, 11, 12, 'หลอดไฟในห้องน้ำขาด', '2025-11-04 10:00:00', 'completed', 150.00),
 (4, 22, 23, 'ชักโครกกดไม่ลง', '2025-11-05 18:00:00', 'pending', 0.00);
 
--- ข้อมูล: Announcements (2 รายการ)
+-- Announcements
 INSERT INTO `announcements` (`announcement_id`, `user_id`, `title`, `content`, `created_at`) VALUES
 (1, 1, 'แจ้งกำหนดการตัดไฟ 10 พ.ย. 2568', 'เนื่องด้วยการไฟฟ้าจะทำการปรับปรุงหม้อแปลง หอพักจะไฟดับในวันที่ 10 พฤศจิกายน 2568 เวลา 09:00 - 15:00 น. ขออภัยในความไม่สะดวก', '2025-11-08 10:00:00'),
 (2, 1, 'ประกาศ: ห้ามเลี้ยงสัตว์ทุกชนิด', 'เน้นย้ำเรื่องกฎระเบียบ ห้ามมิให้ผู้เช่านำสัตว์เลี้ยงทุกชนิดเข้ามาเลี้ยงในบริเวณหอพักโดยเด็ดขาด หากตรวจพบจะดำเนินการตามสัญญาเช่า', '2025-11-09 08:00:00');
 
-
 -- =================================================================
--- 5. COMMIT
+-- 5. COMMIT & RE-ENABLE CHECKS
 -- =================================================================
+SET FOREIGN_KEY_CHECKS = 1;
 COMMIT;

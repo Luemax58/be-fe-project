@@ -2,138 +2,78 @@ package user
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"os" // <--- เพิ่ม
-	"time" // <--- เพิ่ม
+	"os"
+	"time"
 
-	"golang.org/x/crypto/bcrypt"
-	"github.com/golang-jwt/jwt/v5" // <--- เพิ่ม
 	"github.com/Luemax58/be-fe-project/pkg/models"
-	"gorm.io/gorm"
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt" // ⚠️ อย่าลืม go get library นี้นะครับ
 )
 
-// IUserService คือ "เมนู" ที่บอกว่า Service ทำอะไรได้บ้าง
 type IUserService interface {
-	Register(ctx context.Context, username, password, fullName, phone, role string) (*models.User, error)
-    Login(ctx context.Context, username, password string) (string, error)
-    GetUserProfile(ctx context.Context, id uint) (*models.User, error)
+	Login(ctx context.Context, username, password string) (*models.User, string, error)
+	GetUserProfile(ctx context.Context, userID uint) (*models.User, error)
 }
 
-// ----------------------------------------------------
-
-// userService คือ struct "พ่อครัว" ที่ทำงานจริง
 type userService struct {
-	userRepo IUserRepository
+	repo IUserRepository
 }
 
-// NewUserService คือ "โรงงาน" สร้าง Service
 func NewUserService(repo IUserRepository) IUserService {
-	return &userService{userRepo: repo}
+	return &userService{repo: repo}
 }
 
-// ----------------------------------------------------
-// VVVV "สมอง" ของการ Register VVVV (อันนี้ของคุณถูกต้องอยู่แล้ว)
-// ----------------------------------------------------
+// Login
+func (s *userService) Login(ctx context.Context, username, password string) (*models.User, string, error) {
+	// 1. ค้นหา User
+	user, err := s.repo.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, "", errors.New("invalid username or password")
+	}
 
-func (s *userService) Register(ctx context.Context, username, password, fullName, phone, role string) (*models.User, error) {
+	// 2. เช็ก Password
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+	if err != nil {
+		return nil, "", errors.New("invalid username or password")
+	}
 
-    // (3) ส่ง ctx ต่อไปให้ Repo
-    _, err := s.userRepo.GetUserByUsername(ctx, username)
+	// 3. ✅ สร้าง JWT Token ของจริง! (ตรงนี้แหละที่แก้)
+	tokenString, err := generateJWT(user)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to generate token: %v", err)
+	}
 
-    if err == nil {
-        return nil, fmt.Errorf("username '%s' already exists", username)
-    }
-    if err != gorm.ErrRecordNotFound {
-        return nil, fmt.Errorf("database error: %w", err)
-    }
-
-    // (Hashing ไม่ต้องใช้ ctx เพราะมันทำงานใน CPU, ไม่เกี่ยวกับ DB)
-    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-    if err != nil {
-        return nil, fmt.Errorf("failed to hash password: %w", err)
-    }
-
-    newUser := &models.User{
-        // ... (เหมือนเดิม) ...
-        Username:     username,
-        PasswordHash: string(hashedPassword),
-        FullName:     fullName,
-        Phone:        &phone,
-        Role:         role,
-    }
-
-    // (4) ส่ง ctx ต่อไปให้ Repo
-    if err := s.userRepo.CreateUser(ctx, newUser); err != nil {
-        return nil, fmt.Errorf("failed to create user: %w", err)
-    }
-
-    return newUser, nil
+	return user, tokenString, nil
 }
 
-
-// ----------------------------------------------------
-// VVVV นี่คือฟังก์ชัน "Login" ที่ขาดหายไป (Error ที่ 3) VVVV
-// ----------------------------------------------------
-
-func (s *userService) Login(ctx context.Context, username string, password string) (string, error) {
-
-    // (5) ส่ง ctx ต่อไปให้ Repo
-    user, err := s.userRepo.GetUserByUsername(ctx, username)
-    if err != nil {
-        return "", fmt.Errorf("invalid username or password")
-    }
-
-    // (Compare Hashing ไม่ต้องใช้ ctx)
-    err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
-    if err != nil {
-        return "", fmt.Errorf("invalid username or password")
-    }
-
-    // (Generate JWT ไม่ต้องใช้ ctx)
-    tokenString, err := generateJWT(user)
-    if err != nil {
-        return "", fmt.Errorf("failed to generate token: %w", err)
-    }
-
-    return tokenString, nil
-}
-
-// ----------------------------------------------------
-// VVVV นี่คือฟังก์ชัน "generateJWT" ที่ขาดหายไป VVVV
-// ----------------------------------------------------
-
+// ฟังก์ชันช่วยสร้าง JWT (Private Function)
 func generateJWT(user *models.User) (string, error) {
-	// 1. ดึง Secret Key จาก .env
+	// อ่าน Secret Key จาก Env (เหมือนที่ Middleware อ่าน)
 	secretKey := os.Getenv("JWT_SECRET_KEY")
 	if secretKey == "" {
-		return "", fmt.Errorf("JWT_SECRET_KEY is not set")
+		// Fallback: ถ้าลืมตั้งใน .env ให้ใช้ค่า Default นี้ไปก่อน (จะได้ไม่พังตอน dev)
+		secretKey = "my-secret-key-1234"
+		fmt.Println("⚠️ Warning: JWT_SECRET_KEY not set, using default key.")
 	}
 
-	// 2. สร้าง "Claims" (ข้อมูลในบัตร)
+	// สร้าง Claims (ข้อมูลในบัตร)
 	claims := jwt.MapClaims{
-		"user_id": user.UserID,
-		"role":    user.Role,
-		"exp":     time.Now().Add(time.Hour * 72).Unix(), // หมดอายุใน 3 วัน
-		"iat":     time.Now().Unix(),                      // ออกบัตรเมื่อ
+		"user_id":  user.UserID,                           // ตรงกับที่ Middleware รอรับ
+		"username": user.Username,                         // แถมให้
+		"role":     user.Role,                             // แถมให้ (เอาไว้เช็กสิทธิ์)
+		"exp":      time.Now().Add(time.Hour * 24).Unix(), // หมดอายุใน 24 ชม.
 	}
 
-	// 3. สร้าง Token
+	// สร้าง Token พร้อมเซ็นลายเซ็น
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// 4. "เซ็น" Token ด้วย Secret Key
 	tokenString, err := token.SignedString([]byte(secretKey))
-	if err != nil {
-		return "", err
-	}
 
-	return tokenString, nil
+	return tokenString, err
 }
 
-func (s *userService) GetUserProfile(ctx context.Context, id uint) (*models.User, error) {
-    // (6) ส่ง ctx ต่อไปให้ Repo
-    user, err := s.userRepo.GetUserByID(ctx, id)
-    if err != nil {
-        return nil, fmt.Errorf("user not found")
-    }
-    return user, nil
+// GetUserProfile
+func (s *userService) GetUserProfile(ctx context.Context, userID uint) (*models.User, error) {
+	return s.repo.GetUserByID(ctx, userID)
 }

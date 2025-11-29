@@ -1,13 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"time" // (1) เพิ่ม
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 
-	// (2) VVVV Import "บ้าน" ใหม่ของเราทั้งหมด VVVV
+	// Import แพ็กเกจภายในให้ครบ
 	"github.com/Luemax58/be-fe-project/internal/billing"
 	"github.com/Luemax58/be-fe-project/internal/health"
 	"github.com/Luemax58/be-fe-project/internal/maintenance"
@@ -15,100 +17,105 @@ import (
 	"github.com/Luemax58/be-fe-project/internal/room"
 	"github.com/Luemax58/be-fe-project/internal/user"
 	"github.com/Luemax58/be-fe-project/pkg/database"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
-	// 1. เชื่อมต่อ Database (เวอร์ชันอัปเกรด: พร้อม Pooling)
+	if err := godotenv.Load(); err != nil {
+		log.Println("⚠️  Warning: .env file not found (using system env or defaults)")
+	} else {
+		log.Println("✅ .env loaded successfully")
+	}
+	// 1. เชื่อมต่อ Database
 	db, err := database.ConnectDB()
+	password := "123456" // รหัสที่เราต้องการ
+
+	// Gen Hash
+	bytes, _ := bcrypt.GenerateFromPassword([]byte(password), 14)
+
+	fmt.Println("--- Copy Hash ด้านล่างนี้ไปใส่ใน Database ---")
+	fmt.Println(string(bytes))
+	fmt.Println("-------------------------------------------")
+	fmt.Println(string(bytes))
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatal(err)
 	}
 
-	// (ตาม Best Practice ของอาจารย์: เราต้อง Close() เมื่อแอปปิด)
-	sqlDB, err := db.DB()
-	if err != nil {
-		log.Fatalf("Failed to get underlying sql.DB: %v", err)
-	}
+	sqlDB, _ := db.DB()
 	defer sqlDB.Close()
 
-	// 2. สร้าง Server (Gin)
-	// (ตาม Best Practice ของอาจารย์: ใช้ ReleaseMode ใน Production)
-	gin.SetMode(gin.ReleaseMode)
+	// 2. Setup Server
 	r := gin.Default()
 	r.Use(cors.Default())
 
-	// 3. VVVV "เดินสายไฟ" (Dependency Injection) VVVV
-	// นี่คือ "หัวใจ" ที่ตรงกับหลักการ DIP (BookStore) ของอาจารย์เป๊ะๆ
+	// ---------------------------------------------------------
+	// 3. Wiring (ต่อสายไฟ Dependency Injection)
+	// ---------------------------------------------------------
 
-	// --- (ส่วนของ Health Check) ---
-	// (Health Handler จะ "ถือ" DB ตรงๆ เพื่อ Ping)
+	// --- Health (แบบเดิม) ---
 	healthHandler := health.NewHealthHandler(db)
 
-	// --- (ส่วนของ User) ---
+	// --- User (แบบใหม่: Repo -> Service -> Handler) ---
 	userRepo := user.NewUserRepository(db)
 	userService := user.NewUserService(userRepo)
 	userHandler := user.NewUserHandler(userService)
 
-	// --- (ส่วนของ Room) ---
+	// --- Room (แบบใหม่: Repo -> Service -> Handler) ---
 	roomRepo := room.NewRoomRepository(db)
 	roomService := room.NewRoomService(roomRepo)
 	roomHandler := room.NewRoomHandler(roomService)
 
-	// --- (ส่วนของ billing) ---
+	// --- Maintenance (แบบใหม่: Repo -> Service -> Handler) --- ✅ จุดที่เพิ่งแก้
+	maintRepo := maintenance.NewMaintenanceRepository(db)
+	maintService := maintenance.NewMaintenanceService(maintRepo)
+	maintHandler := maintenance.NewMaintenanceHandler(maintService)
+
+	// --- Billing (แบบเดิม: ต่อ DB ตรง) ---
 	billingHandler := billing.NewBillingHandler(db)
 
-	// --- (ส่วนของ maintenance) ---
-	maintenanceHandler := maintenance.NewMaintenanceHandler(db)
-
-	// 4. ตั้งค่า Middleware (Global)
-	// (ตาม Best Practice ของอาจารย์: ใช้ Timeout Middleware)
+	// ---------------------------------------------------------
+	// 4. Routes
+	// ---------------------------------------------------------
 	r.Use(middleware.TimeoutMiddleware(10 * time.Second))
 
-	// 5. ตั้งค่า API Routes (Public)
-	// (ตาม Best Practice ของอาจารย์: /health อยู่นอกสุด)
+	// Health Check
 	r.GET("/health", healthHandler.HealthCheck)
 
 	apiV1 := r.Group("/api/v1")
 	{
-		// --- Group 1: Public Routes (ไม่ต้องใช้ Token) ---
-		public := apiV1.Group("")
-		{
-			public.POST("/register", userHandler.Register)
-			public.POST("/login", userHandler.Login)
-		}
+		// --- Public Routes ---
+		// (Register ลบออกแล้วตามแผน)
+		apiV1.POST("/login", userHandler.Login)
 
-		// --- Group 2: Protected Routes (ต้องใช้ Token) ---
+		// --- Protected Routes ---
 		protected := apiV1.Group("")
-		protected.Use(middleware.AuthMiddleware()) // <--- ใช้ "ด่านตรวจ"
+		protected.Use(middleware.AuthMiddleware())
 		{
-			// User Routes
+			// User
 			protected.GET("/users/me", userHandler.GetMyProfile)
 
-			// Room Routes (ที่เราเพิ่งทำเสร็จ!)
+			// Room
 			protected.GET("/rooms", roomHandler.GetAllRooms)
-			// TODO: protected.POST("/rooms", roomHandler.CreateRoom)
+			// protected.POST("/rooms", roomHandler.CreateRoom)
 
-			billing := protected.Group("/billing")
-			{
-				billing.POST("/invoices/generate", billingHandler.GenerateInvoices)
-				billing.POST("/utilities/record", billingHandler.RecordUtilityUsage)
-				billing.POST("/payments/record", billingHandler.RecordPayment)
-				// billing.GET("/history", handler.GetBillingHistory)
-			}
-
+			// Maintenance
 			maint := protected.Group("/maintenance")
 			{
-				maint.POST("/creates", maintenanceHandler.CreateMaintenanceRequest)
-				// maint.PUT("/update/:id", handler.UpdateMaintenanceStatus)
-				maint.GET("/requests", maintenanceHandler.ListMaintenanceRequests)
+				maint.POST("/creates", maintHandler.CreateMaintenanceRequest)
+				maint.GET("/requests", maintHandler.ListMaintenanceRequests)
 			}
 
+			// Billing
+			bill := protected.Group("/billing")
+			{
+				bill.POST("/invoices/generate", billingHandler.GenerateInvoices)
+				bill.POST("/utilities/record", billingHandler.RecordUtilityUsage)
+				bill.POST("/payments/record", billingHandler.RecordPayment)
+			}
 		}
 	}
 
-	// 6. รัน Server
-	log.Println("Starting server on :8080...")
-	if err := r.Run(":8080"); err != nil {
-		log.Fatal("Failed to start server: ", err)
-	}
+	// 5. Run Server
+	log.Println("Server running on port :8080")
+	r.Run(":8080")
 }
