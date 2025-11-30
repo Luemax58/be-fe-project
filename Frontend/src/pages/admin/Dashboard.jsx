@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axiosClient from "../../api/axiosClient";
 import { formatThaiDateTime } from "../../utils/dateFormat";
+import AdminLayout from "../../layouts/AdminLayout";
 
 export default function AdminDashboard() {
   const [rooms, setRooms] = useState(null);
@@ -36,6 +37,7 @@ export default function AdminDashboard() {
   const pendingRequests = maintenance.filter((m) => m.status === "pending").length;
 
   return (
+    <AdminLayout>
     <div className="p-5">
       <h1 className="text-2xl font-bold mb-5">Admin Dashboard</h1>
 
@@ -78,5 +80,6 @@ export default function AdminDashboard() {
         </tbody>
       </table>
     </div>
+    </AdminLayout>
   );
 }

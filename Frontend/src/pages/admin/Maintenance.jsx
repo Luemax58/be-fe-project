@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axiosClient from "../../api/axiosClient";
 import { formatThaiDateTime } from "../../utils/dateFormat";
+import AdminLayout from "../../layouts/AdminLayout";
 
 export default function AdminMaintenance() {
   const [requests, setRequests] = useState([]);
@@ -42,6 +43,7 @@ export default function AdminMaintenance() {
       : requests.filter((r) => r.status === filter);
 
   return (
+    <AdminLayout>
     <div className="p-5">
       <h1 className="text-2xl font-bold mb-5">คำร้องซ่อมบำรุง (Admin)</h1>
 
@@ -158,5 +160,6 @@ export default function AdminMaintenance() {
         </div>
       )}
     </div>
+    </AdminLayout>
   );
 }
