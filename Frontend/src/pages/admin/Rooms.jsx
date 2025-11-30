@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axiosClient from "../../api/axiosClient";
 import { formatThaiDateTime } from "../../utils/dateFormat";
+import AdminLayout from "../../layouts/AdminLayout";
 
 export default function Rooms() {
   const [rooms, setRooms] = useState([]);
@@ -20,6 +21,7 @@ export default function Rooms() {
   };
 
   return (
+    <AdminLayout>
     <div className="p-5">
       <h1 className="text-2xl font-bold mb-5">จัดการห้องพัก (Admin)</h1>
 
@@ -75,5 +77,6 @@ export default function Rooms() {
         </tbody>
       </table>
     </div>
+    </AdminLayout>
   );
 }

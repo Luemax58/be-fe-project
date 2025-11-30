@@ -97,7 +97,6 @@ func main() {
 		// --- Public Routes ---
 		// (Register ลบออกแล้วตามแผน)
 		apiV1.POST("/login", userHandler.Login)
-
 		apiV1.GET("/debug/users", func(c *gin.Context) {
 			var users []models.User
 			result := db.Find(&users)

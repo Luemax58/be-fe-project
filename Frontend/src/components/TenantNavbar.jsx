@@ -1,8 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
 
-export default function Navbar() {
+export default function TenantNavbar() {
   const navigate = useNavigate();
-  const role = localStorage.getItem("role"); // <-- ดึง role
+  const role = localStorage.getItem("role");
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -19,27 +19,16 @@ export default function Navbar() {
 
   return (
     <nav className="w-full bg-white shadow p-4 flex items-center justify-between">
-
       <h1 className="text-xl font-bold text-blue-700">Ovaltin System</h1>
 
-      {/* เมนู */}
       <div className="flex space-x-2">
-        <NavLink to="/admin/dashboard" className={linkClass}>แดชบอร์ด</NavLink>
-        <NavLink to="/admin/rooms" className={linkClass}>จัดการห้อง</NavLink>
-        <NavLink to="/admin/billing" className={linkClass}>จัดการบิล</NavLink>
-        <NavLink to="/admin/maintenance" className={linkClass}>งานซ่อมบำรุง</NavLink>
+        <NavLink to="/tenant/dashboard" className={linkClass}>แดชบอร์ด</NavLink>
+        <NavLink to="/tenant/billing" className={linkClass}>บิลของฉัน</NavLink>
+        <NavLink to="/tenant/maintenance" className={linkClass}>แจ้งซ่อม</NavLink>
       </div>
 
-      {/* โซนขวา */}
       <div className="flex items-center space-x-4">
-
-        {/*  ข้อความแสดง role */}
-        <span className="text-gray-600 flex items-center">
-          <span className="material-icons mr-1"></span>
-          {role === "owner" ? "Admin" : role === "tenant" ? "Tenant" : "User"}
-        </span>
-
-        {/* ปุ่มออกจากระบบ */}
+        <span className="text-gray-600">Tenant</span>
         <button
           onClick={logout}
           className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"

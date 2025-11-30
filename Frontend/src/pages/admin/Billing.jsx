@@ -1,235 +1,174 @@
 import { useEffect, useState } from "react";
-import axiosClient from "../../api/axiosClient";
+import AdminLayout from "../../layouts/AdminLayout";
 import { formatThaiDateTime } from "../../utils/dateFormat";
+import axiosClient from "../../api/axiosClient";
 
-export default function Billing() {
-  const [billings, setBillings] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // ฟอร์มสร้างบิล
+export default function BillingPage() {
+  const [bills, setBills] = useState([]);
   const [month, setMonth] = useState("");
-  const [dueDays, setDueDays] = useState(7);
+  const [year, setYear] = useState(new Date().getFullYear() + 543);
+  const [loading, setLoading] = useState(false);
 
-  // ฟอร์มแก้น้ำไฟ
-  const [editBill, setEditBill] = useState(null);
-  const [waterUnits, setWaterUnits] = useState("");
-  const [electricityUnits, setElectricityUnits] = useState("");
-
-  // ฟอร์มรับเงิน
-  const [payBill, setPayBill] = useState(null);
-  const [amountPaid, setAmountPaid] = useState("");
-
+  // โหลดบิลทั้งหมด
   useEffect(() => {
-    loadBillings();
+    loadBills();
   }, []);
 
-  const loadBillings = async () => {
+  const loadBills = async () => {
     try {
-      const res = await axiosClient.get("/billing/admin/all"); // ถ้ามี API นี้
-      setBillings(res.data || []);
+      const res = await axiosClient.get("/billing/admin/all");
+
+      if (Array.isArray(res.data)) {
+        setBills(res.data);
+      } else {
+        console.error("Billing format unexpected:", res.data);
+        setBills([]);
+      }
+
     } catch (err) {
-      console.error(err);
-      alert("ดึงข้อมูลบิลไม่สำเร็จ");
-    } finally {
-      setLoading(false);
+      console.error("loadBills error:", err);
     }
   };
 
-  // สร้างบิล
-  const generateInvoices = async () => {
+  // สร้างบิลรายเดือน
+  const createBilling = async () => {
+    if (!month || !year) {
+      alert("กรุณาเลือกปีและเดือนก่อนสร้างบิล");
+      return;
+    }
+
+    if (!window.confirm(`ยืนยันการสร้างบิล เดือน ${month}/${year}?`)) return;
+
+    setLoading(true);
+
     try {
       await axiosClient.post("/billing/admin/invoices/generate", {
-        month,
-        due_days_after: dueDays,
+        month: Number(month),
+        year: Number(year),
       });
+
       alert("สร้างบิลสำเร็จ");
-      loadBillings();
+      loadBills();
     } catch (err) {
-      console.error(err);
       alert("สร้างบิลล้มเหลว");
+      console.error("createBilling error →", err);
     }
-  };
 
-  // อัปเดตค่าน้ำไฟ
-  const recordUtility = async () => {
-    try {
-      await axiosClient.post("/billing/admin/utilities/record", {
-        billing_id: editBill.billing_id,
-        water_units: Number(waterUnits),
-        electricity_units: Number(electricityUnits),
-      });
-      alert("บันทึกสำเร็จ");
-      setEditBill(null);
-      loadBillings();
-    } catch (err) {
-      console.error(err);
-      alert("บันทึกน้ำไฟล้มเหลว");
-    }
+    setLoading(false);
   };
-
-  // รับเงิน
-  const recordPayment = async () => {
-    try {
-      await axiosClient.post("/billing/admin/payments/record", {
-        billing_id: payBill.billing_id,
-        tenant_id: payBill.tenant_id,
-        amount_paid: Number(amountPaid),
-        payment_method: "cash",
-      });
-      alert("รับเงินสำเร็จ");
-      setPayBill(null);
-      loadBillings();
-    } catch (err) {
-      console.error(err);
-      alert("รับเงินล้มเหลว");
-    }
-  };
-
-  if (loading) return <div className="p-5">Loading...</div>;
 
   return (
-    <div className="p-5">
-      <h1 className="text-2xl font-bold mb-4">จัดการ Billing (Admin)</h1>
+    <AdminLayout>
+      <div className="p-6">
 
-      {/* ฟอร์มสร้างบิล */}
-      <div className="bg-white p-4 shadow mb-6 rounded-lg">
-        <h2 className="text-lg font-semibold mb-2">สร้างบิลรายเดือน</h2>
-        <div className="flex items-center gap-4">
-          <input
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="border p-2 rounded"
-          />
+        <h1 className="text-3xl font-bold mb-6">จัดการ Billing (Admin)</h1>
 
-          <input
-            type="number"
-            value={dueDays}
-            onChange={(e) => setDueDays(e.target.value)}
-            className="border p-2 rounded"
-          />
+        {/* กล่องสร้างบิล */}
+        <div className="bg-white p-5 rounded-xl shadow mb-8">
+          <h2 className="text-xl font-semibold mb-3">สร้างบิลรายเดือน</h2>
 
-          <button
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-            onClick={generateInvoices}
-          >
-            สร้างบิล
-          </button>
+          <div className="flex items-center space-x-4">
+
+            {/* ปี */}
+            <select
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              className="border p-2 rounded min-w-[120px]"
+            >
+              <option value="">เลือกปี</option>
+              <option value="2568">2568</option>
+              <option value="2567">2567</option>
+              <option value="2566">2566</option>
+              <option value="2565">2565</option>
+            </select>
+
+            {/* เดือน */}
+            <select
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="border p-2 rounded min-w-[120px]"
+            >
+              <option value="">เลือกเดือน</option>
+              <option value="1">มกราคม</option>
+              <option value="2">กุมภาพันธ์</option>
+              <option value="3">มีนาคม</option>
+              <option value="4">เมษายน</option>
+              <option value="5">พฤษภาคม</option>
+              <option value="6">มิถุนายน</option>
+              <option value="7">กรกฎาคม</option>
+              <option value="8">สิงหาคม</option>
+              <option value="9">กันยายน</option>
+              <option value="10">ตุลาคม</option>
+              <option value="11">พฤศจิกายน</option>
+              <option value="12">ธันวาคม</option>
+            </select>
+
+            <button
+              onClick={createBilling}
+              className={`px-4 py-2 rounded text-white ${
+                loading ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"
+              }`}
+            >
+              {loading ? "กำลังสร้าง..." : "สร้างบิล"}
+            </button>
+          </div>
+        </div>
+
+        {/* ตาราง */}
+        <div className="bg-white p-5 rounded-xl shadow">
+          <h2 className="text-xl font-semibold mb-4">รายการบิลทั้งหมด</h2>
+
+          <table className="min-w-full table-auto border-collapse bg-white">
+            <thead>
+              <tr className="bg-gray-100 text-left">
+                <th className="p-3">Room</th>
+                <th className="p-3">Month</th>
+                <th className="p-3">Water</th>
+                <th className="p-3">Electric</th>
+                <th className="p-3">Total</th>
+                <th className="p-3">Status</th>
+                <th className="p-3">Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {bills.map((b) => (
+                <tr key={b.billing_id} className="border-t">
+                  <td className="p-2">{b.room_number}</td>
+                  <td className="p-2">{formatThaiDateTime(b.billing_month)}</td>
+                  <td className="p-2">{b.water_bill}</td>
+                  <td className="p-2">{b.electricity_bill}</td>
+                  <td className="p-2">{b.total_utility_bill}</td>
+
+                  <td className="p-2">
+                    <span
+                      className={
+                        b.status === "paid"
+                          ? "text-green-600"
+                          : b.status === "overdue"
+                          ? "text-red-600"
+                          : "text-yellow-600"
+                      }
+                    >
+                      {b.status}
+                    </span>
+                  </td>
+
+                  <td className="p-2">
+                    <button className="px-3 py-1 bg-yellow-500 text-white rounded mr-2">
+                      น้ำ/ไฟ
+                    </button>
+                    <button className="px-3 py-1 bg-green-600 text-white rounded">
+                      รับเงิน
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
         </div>
       </div>
-
-      {/* ตารางบิล */}
-      <table className="w-full border">
-        <thead className="bg-gray-200">
-          <tr>
-            <th className="p-2">Room</th>
-            <th className="p-2">Month</th>
-            <th className="p-2">Water</th>
-            <th className="p-2">Electric</th>
-            <th className="p-2">Total</th>
-            <th className="p-2">Status</th>
-            <th className="p-2">Action</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {billings.map((b) => (
-            <tr key={b.billing_id} className="border-t">
-              <td className="p-2">{b.room_id}</td>
-              <td className="p-2">{formatThaiDateTime(b.billing_month)}</td>
-              <td className="p-2">{b.water_units}</td>
-              <td className="p-2">{b.electricity_units}</td>
-              <td className="p-2">{b.total_utility_bill}</td>
-              <td className="p-2">{b.status}</td>
-
-              <td className="p-2 flex gap-2">
-                <button
-                  className="bg-yellow-500 text-white px-3 py-1 rounded"
-                  onClick={() => setEditBill(b)}
-                >
-                  น้ำ/ไฟ
-                </button>
-                <button
-                  className="bg-green-600 text-white px-3 py-1 rounded"
-                  onClick={() => setPayBill(b)}
-                >
-                  รับเงิน
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Modal บันทึกน้ำไฟ */}
-      {editBill && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
-          <div className="bg-white p-5 rounded shadow w-96">
-            <h2 className="text-lg font-bold mb-2">บันทึกน้ำ-ไฟ</h2>
-
-            <input
-              type="number"
-              placeholder="Water"
-              value={waterUnits}
-              onChange={(e) => setWaterUnits(e.target.value)}
-              className="border p-2 w-full mb-2"
-            />
-
-            <input
-              type="number"
-              placeholder="Electric"
-              value={electricityUnits}
-              onChange={(e) => setElectricityUnits(e.target.value)}
-              className="border p-2 w-full mb-4"
-            />
-
-            <button
-              onClick={recordUtility}
-              className="bg-blue-600 text-white px-4 py-2 rounded"
-            >
-              บันทึก
-            </button>
-
-            <button
-              onClick={() => setEditBill(null)}
-              className="ml-2 text-gray-600"
-            >
-              ยกเลิก
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal รับเงิน */}
-      {payBill && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
-          <div className="bg-white p-5 rounded shadow w-96">
-            <h2 className="text-lg font-bold mb-3">รับเงินบิล</h2>
-
-            <input
-              type="number"
-              placeholder="จำนวนเงิน"
-              value={amountPaid}
-              onChange={(e) => setAmountPaid(e.target.value)}
-              className="border p-2 w-full mb-3"
-            />
-
-            <button
-              onClick={recordPayment}
-              className="bg-green-600 text-white px-4 py-2 rounded"
-            >
-              บันทึกการจ่ายเงิน
-            </button>
-
-            <button
-              onClick={() => setPayBill(null)}
-              className="ml-2 text-gray-600"
-            >
-              ยกเลิก
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    </AdminLayout>
   );
 }

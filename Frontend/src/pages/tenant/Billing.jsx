@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axiosClient from "../../api/axiosClient";
 import { formatThaiDateTime } from "../../utils/dateFormat";
+import TenantLayout from "../../layouts/TenantLayout";
 
 export default function TenantBilling() {
   const [invoices, setInvoices] = useState([]);
@@ -36,6 +37,7 @@ export default function TenantBilling() {
   };
 
   return (
+    <TenantLayout>
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-5">บิลของฉัน</h1>
 
@@ -91,5 +93,6 @@ export default function TenantBilling() {
         </tbody>
       </table>
     </div>
+    </TenantLayout>
   );
 }
