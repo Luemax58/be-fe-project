@@ -1,13 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"time"
+	"fmt"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/Luemax58/be-fe-project/internal/models"
 
 	// Import แพ็กเกจภายในให้ครบ
 	"github.com/Luemax58/be-fe-project/internal/billing"
@@ -33,10 +34,10 @@ func main() {
 	// Gen Hash
 	bytes, _ := bcrypt.GenerateFromPassword([]byte(password), 14)
 
-	fmt.Println("--- Copy Hash ด้านล่างนี้ไปใส่ใน Database ---")
+	// fmt.Println("--- Copy Hash ด้านล่างนี้ไปใส่ใน Database ---")
 	fmt.Println(string(bytes))
-	fmt.Println("-------------------------------------------")
-	fmt.Println(string(bytes))
+	// fmt.Println("-------------------------------------------")
+	// fmt.Println(string(bytes))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -46,7 +47,16 @@ func main() {
 
 	// 2. Setup Server
 	r := gin.Default()
-	r.Use(cors.Default())
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{
+			"http://localhost:3000",
+			"http://127.0.0.1:3000",
+		},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 
 	// ---------------------------------------------------------
 	// 3. Wiring (ต่อสายไฟ Dependency Injection)
@@ -70,8 +80,9 @@ func main() {
 	maintService := maintenance.NewMaintenanceService(maintRepo)
 	maintHandler := maintenance.NewMaintenanceHandler(maintService)
 
-	// --- Billing (แบบเดิม: ต่อ DB ตรง) ---
-	billingHandler := billing.NewBillingHandler(db)
+	adminBillingHandler := billing.NewAdminBillingHandler(db)
+	tenantBillingHandler := billing.NewTenantBillingHandler(db)
+	billingQueryHandler := billing.NewBillingQueryHandler(db)
 
 	// ---------------------------------------------------------
 	// 4. Routes
@@ -86,6 +97,17 @@ func main() {
 		// --- Public Routes ---
 		// (Register ลบออกแล้วตามแผน)
 		apiV1.POST("/login", userHandler.Login)
+
+		apiV1.GET("/debug/users", func(c *gin.Context) {
+			var users []models.User
+			result := db.Find(&users)
+			if result.Error != nil {
+				c.JSON(500, gin.H{"error": result.Error.Error()})
+				return
+			}
+			c.JSON(200, users)
+		})
+
 
 		// --- Protected Routes ---
 		protected := apiV1.Group("")
@@ -103,14 +125,23 @@ func main() {
 			{
 				maint.POST("/creates", maintHandler.CreateMaintenanceRequest)
 				maint.GET("/requests", maintHandler.ListMaintenanceRequests)
+				maint.PUT("/update/:id", maintHandler.UpdateStatus)
 			}
 
-			// Billing
-			bill := protected.Group("/billing")
+			adminBill := protected.Group("/billing/admin")
 			{
-				bill.POST("/invoices/generate", billingHandler.GenerateInvoices)
-				bill.POST("/utilities/record", billingHandler.RecordUtilityUsage)
-				bill.POST("/payments/record", billingHandler.RecordPayment)
+				adminBill.POST("/invoices/generate", adminBillingHandler.GenerateInvoices)
+				adminBill.POST("/utilities/record", adminBillingHandler.RecordUtilityUsage)
+				adminBill.POST("/payments/record", adminBillingHandler.RecordPayment)
+
+				adminBill.GET("/all", billingQueryHandler.GetAllInvoices)
+			}
+
+			tenantBill := protected.Group("/billing")
+			{
+				tenantBill.GET("/my-invoices", tenantBillingHandler.GetMyInvoices)
+				tenantBill.GET("/my-payments", tenantBillingHandler.GetMyPayments)
+				tenantBill.POST("/pay", tenantBillingHandler.PayInvoice)
 			}
 		}
 	}

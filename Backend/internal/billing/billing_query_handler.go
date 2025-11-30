@@ -78,3 +78,5 @@ func (h *BillingQueryHandler) GetInvoicesByTenant(c *gin.Context) {
 
     c.JSON(http.StatusOK, invoices)
 }
+
+

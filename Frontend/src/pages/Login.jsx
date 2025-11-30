@@ -1,76 +1,110 @@
-// src/pages/Login.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axiosClient from "../api/axiosClient";
-import { jwtDecode } from "jwt-decode";
+import authApi from "../api/authApi";
 
 export default function Login() {
-  const nav = useNavigate();
+  const navigate = useNavigate();
   const [form, setForm] = useState({ username: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const submit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleLogin = async () => {
+    setErrorMsg("");
+
+    if (!form.username || !form.password) {
+      return setErrorMsg("กรุณากรอกชื่อผู้ใช้และรหัสผ่าน");
+    }
 
     try {
-      const res = await axiosClient.post("/login", form);
+      setLoading(true);
+
+      // 🔥 1) ส่ง username + password ไปยัง Backend
+      const res = await authApi.login(form);
+
       const token = res.data.token;
+      if (!token) {
+        setErrorMsg("ไม่พบ token จาก server");
+        return;
+      }
 
-      // decode jwt
-      const decoded = jwtDecode(token);
-      const user_id = decoded.user_id;
-
-      // fetch /me
-      const meRes = await axiosClient.get("/users/me", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      const role = meRes.data.role;
-
-      // save local
       localStorage.setItem("token", token);
-      localStorage.setItem("role", role);
-      localStorage.setItem("user_id", user_id);
 
-      // redirect by role
-      role === "owner"
-        ? nav("/admin/dashboard")
-        : nav("/tenant/dashboard");
+      // 🔥 2) ดึงข้อมูลผู้ใช้
+      const profile = await authApi.getProfile();
+      const role = profile.data.role;
+
+      if (!role) {
+        setErrorMsg("ไม่พบ role ของผู้ใช้");
+        return;
+      }
+
+      localStorage.setItem("role", role);
+
+      // 🔥 3) Redirect ตาม role
+      if (role === "owner") navigate("/admin/dashboard");
+      if (role === "tenant") navigate("/tenant/dashboard");
+
     } catch (err) {
-      alert("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
+      console.error(err);
+      setErrorMsg("เข้าสู่ระบบล้มเหลว โปรดตรวจสอบข้อมูลอีกครั้ง");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="h-screen flex justify-center items-center bg-gray-100">
-      <form onSubmit={submit} className="bg-white p-8 rounded shadow w-80 space-y-4">
-        <h1 className="text-xl font-bold text-center">เข้าสู่ระบบ</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md">
 
-        <input
-          className="border p-2 w-full"
-          placeholder="Username"
-          value={form.username}
-          onChange={(e) => setForm({ ...form, username: e.target.value })}
-        />
+        <h1 className="text-3xl font-bold text-center mb-6">เข้าสู่ระบบ</h1>
 
-        <input
-          className="border p-2 w-full"
-          type="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-        />
+        {/* Error Box */}
+        {errorMsg && (
+          <div className="bg-red-100 border border-red-300 text-red-700 text-sm p-3 mb-4 rounded">
+            {errorMsg}
+          </div>
+        )}
 
+        {/* Username */}
+        <div className="mb-4">
+          <label className="block text-gray-700 mb-1">ชื่อผู้ใช้</label>
+          <input
+            name="username"
+            className="w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+            placeholder="กรอกชื่อผู้ใช้"
+            value={form.username}
+            onChange={handleChange}
+          />
+        </div>
+
+        {/* Password */}
+        <div className="mb-6">
+          <label className="block text-gray-700 mb-1">รหัสผ่าน</label>
+          <input
+            name="password"
+            type="password"
+            className="w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+            placeholder="กรอกรหัสผ่าน"
+            value={form.password}
+            onChange={handleChange}
+          />
+        </div>
+
+        {/* Login Button */}
         <button
-          className="bg-blue-600 text-white w-full py-2 rounded"
+          onClick={handleLogin}
           disabled={loading}
+          className={`w-full py-2 rounded-lg text-white font-semibold transition ${
+            loading ? "bg-blue-300" : "bg-blue-600 hover:bg-blue-700"
+          }`}
         >
           {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
         </button>
-      </form>
+      </div>
     </div>
   );
 }

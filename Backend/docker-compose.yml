@@ -42,6 +42,7 @@ services:
     # นี่คือวิธีที่ถูกต้องในการเก็บข้อมูล DB ครับ!
     volumes:
       - dbdata:/var/lib/mysql
+      - ./my.cnf:/etc/mysql/conf.d/my.cnf 
     # ตรวจสอบว่า MySQL สตาร์ทสำเร็จหรือยัง
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DB_USER}", "-p${DB_PASSWORD}"]

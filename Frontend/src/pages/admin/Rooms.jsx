@@ -1,55 +1,79 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import axiosClient from "../../api/axiosClient";
+import { formatThaiDateTime } from "../../utils/dateFormat";
 
 export default function Rooms() {
   const [rooms, setRooms] = useState([]);
 
   useEffect(() => {
-    const loadRooms = async () => {
-      try {
-        const token = localStorage.getItem("token");
-
-        const res = await axiosClient.get("/rooms", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        setRooms(res.data);
-      } catch (err) {
-        console.error("โหลดห้องผิดพลาด", err);
-      }
-    };
-
     loadRooms();
   }, []);
 
+  const loadRooms = async () => {
+    try {
+      const res = await axiosClient.get("/rooms");
+      setRooms(res.data || []);
+    } catch (error) {
+      console.error(error);
+      alert("ดึงข้อมูลห้องไม่สำเร็จ");
+    }
+  };
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">จัดการห้องพัก</h2>
-        <button className="px-4 py-2 rounded bg-viridian-600 text-white">
-          + เพิ่มห้องพัก
-        </button>
+    <div className="p-5">
+      <h1 className="text-2xl font-bold mb-5">จัดการห้องพัก (Admin)</h1>
+
+      <div className="bg-white shadow rounded-lg p-4 mb-5">
+        <p>จำนวนห้องทั้งหมด: <b>{rooms.length}</b></p>
+        <p>ห้องว่าง: <b>{rooms.filter((r) => r.status === "available").length}</b></p>
+        <p>ห้องมีผู้เช่า: <b>{rooms.filter((r) => r.status === "occupied").length}</b></p>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="text-sm text-gray-500 border-b">
-              <th className="py-2">เลขห้อง</th>
-              <th>สถานะ</th>
+      {/* ตารางแสดงห้อง */}
+      <table className="w-full border text-left border-collapse">
+        <thead>
+          <tr className="bg-gray-200">
+            <th className="border p-2">Room ID</th>
+            <th className="border p-2">Room Number</th>
+            <th className="border p-2">Floor</th>
+            <th className="border p-2">Status</th>
+            <th className="border p-2">Tenant</th>
+            <th className="border p-2">Base Rent</th>
+            <th className="border p-2">Furniture Fee</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {rooms.map((room) => (
+            <tr key={room.room_id} className="border-t">
+              <td className="border p-2">{room.room_id}</td>
+              <td className="border p-2">{room.room_number}</td>
+              <td className="border p-2">{room.floor ?? "-"}</td>
+
+              {/* สีตามสถานะ */}
+              <td className="border p-2">
+                <span
+                  className={
+                    room.status === "available"
+                      ? "text-green-600 font-semibold"
+                      : "text-red-600 font-semibold"
+                  }
+                >
+                  {room.status}
+                </span>
+              </td>
+
+              {/* ⭐ แก้ตรงนี้ */}
+              <td className="border p-2">
+                {room.tenant?.full_name || "-"}
+              </td>
+
+              <td className="border p-2">{room.base_rent}</td>
+              <td className="border p-2">{room.furniture_fee}</td>
             </tr>
-          </thead>
-
-          <tbody>
-            {rooms.map((room) => (
-              <tr key={room.room_id} className="odd:bg-white even:bg-gray-50">
-                <td className="py-2">{room.room_number}</td>
-                <td>{room.status === "available" ? "ว่าง" : "มีผู้เช่า"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

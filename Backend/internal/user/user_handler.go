@@ -2,7 +2,6 @@ package user
 
 import (
 	"net/http"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -36,39 +35,35 @@ func (h *UserHandler) Login(c *gin.Context) {
 		"message": "Login successful",
 		"token":   token,
 		"user": gin.H{
-			"id":       user.UserID,
-			"username": user.Username,
-			"role":     user.Role,
-			"fullName": user.FullName,
+			"user_id":   user.UserID,
+			"username":  user.Username,
+			"full_name": user.FullName,
+			"phone":     user.Phone,
+			"role":      user.Role,
+			"room_id":   user.RoomID,
 		},
 	})
 }
 
 // GetMyProfile Handler
 func (h *UserHandler) GetMyProfile(c *gin.Context) {
-	// สมมติว่า Middleware แปะ userID มาให้
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+    userID := c.GetUint("user_id")
 
-	// แปลง Type (ต้องระวังตรงนี้ เช็กให้ตรงกับ Middleware)
-	var uid uint
-	if v, ok := userID.(float64); ok { // กรณี JWT parse เป็น float64
-		uid = uint(v)
-	} else if v, ok := userID.(uint); ok {
-		uid = v
-	} else {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "User ID type error"})
-		return
-	}
+	var room models.Room
+	h.repo.DB.Where("tenant_id = ?", user.UserID).First(&room)
 
-	user, err := h.service.GetUserProfile(c.Request.Context(), uid)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	}
+    user, err := h.service.GetUserByID(c.Request.Context(), userID)
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{"user": user})
+    c.JSON(http.StatusOK, gin.H{
+        "user_id":   user.UserID,
+        "username":  user.Username,
+        "full_name": user.FullName,
+        "phone":     user.Phone,
+        "role":      user.Role,
+        "room_id":   user.RoomID,
+    })
 }

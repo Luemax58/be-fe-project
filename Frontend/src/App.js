@@ -1,66 +1,46 @@
-// src/App.js
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-// Login
 import Login from "./pages/Login";
 
-// Admin layouts + pages
-import AdminLayout from "./components/AdminLayout";
-import AdminDashboard from "./pages/admin/AdminDashboard";
+// Admin pages
+import AdminDashboard from "./pages/admin/Dashboard";
 import Rooms from "./pages/admin/Rooms";
-import Tenants from "./pages/admin/Tenants";
-import Invoices from "./pages/admin/Invoices";
-import Reports from "./pages/admin/Reports";
+import Billing from "./pages/admin/Billing";
+import AdminMaintenance from "./pages/admin/Maintenance";
 
-// Tenant layouts + pages
-import TenantLayout from "./components/TenantLayout";
-import Dashboard from "./pages/tenant/Dashboard";
-import RoomDetail from "./pages/tenant/RoomDetail";
-import MaintenanceList from "./pages/tenant/MaintenanceList";
-import MaintenanceCreate from "./pages/tenant/MaintenanceCreate";
-import PaymentForm from "./pages/tenant/PaymentForm";
+// Tenant pages
+import TenantDashboard from "./pages/tenant/Dashboard";
+import TenantBilling from "./pages/tenant/Billing";
+import TenantMaintenance from "./pages/tenant/Maintenance";
 
-// Protected route
-import ProtectedRoute from "./components/ProtectedRoute";
+// Guards
+import AdminRoute from "./routes/AdminRoute";
+import TenantRoute from "./routes/TenantRoute";
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
 
-        {/* หน้า Login รวมทุกฝ่าย */}
-        <Route path="/" element={<Login />} />
+        {/* Redirect "/" -> "/login" */}
+        <Route path="/" element={<Navigate to="/login" />} />
 
-        {/* ADMIN ROUTES */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute role="owner">
-              <AdminLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="rooms" element={<Rooms />} />
-          <Route path="tenants" element={<Tenants />} />
-          <Route path="invoices" element={<Invoices />} />
-          <Route path="reports" element={<Reports />} />
+        {/* Public */}
+        <Route path="/login" element={<Login />} />
+
+        {/* Admin Routes */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/rooms" element={<Rooms />} />
+          <Route path="/admin/billing" element={<Billing />} />
+          <Route path="/admin/maintenance" element={<AdminMaintenance />} />
         </Route>
 
-        {/* TENANT ROUTES */}
-        <Route
-          path="/tenant"
-          element={
-            <ProtectedRoute role="tenant">
-              <TenantLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="room" element={<RoomDetail />} />
-          <Route path="maintenance" element={<MaintenanceList />} />
-          <Route path="maintenance/create" element={<MaintenanceCreate />} />
-          <Route path="payment" element={<PaymentForm />} />
+        {/* Tenant Routes */}
+        <Route element={<TenantRoute />}>
+          <Route path="/tenant/dashboard" element={<TenantDashboard />} />
+          <Route path="/tenant/billing" element={<TenantBilling />} />
+          <Route path="/tenant/maintenance" element={<TenantMaintenance />} />
         </Route>
 
       </Routes>

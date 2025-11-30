@@ -1,30 +1,38 @@
 package billing
 
 import (
-    "net/http"
-    "github.com/gin-gonic/gin"
-    "gorm.io/gorm"
-    "github.com/Luemax58/be-fe-project/pkg/models"
+	"net/http"
+
+	"github.com/Luemax58/be-fe-project/pkg/models"
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type TenantBillingHandler struct {
-    db *gorm.DB
+	DB *gorm.DB
 }
 
 func NewTenantBillingHandler(db *gorm.DB) *TenantBillingHandler {
-    return &TenantBillingHandler{db}
+	return &TenantBillingHandler{DB: db}
 }
 
-// ✔ ผู้เช่าดูใบแจ้งหนี้ของตนเอง
+// ผู้เช่าดูบิลของตนเอง
 func (h *TenantBillingHandler) GetMyInvoices(c *gin.Context) {
     tenantID := c.GetUint("user_id")
 
     var invoices []models.MonthlyBilling
-    err := h.db.
+    err := h.DB.
+        Table("monthly_billing").
+        Select(`
+            monthly_billing.billing_id,
+            monthly_billing.billing_month,
+            monthly_billing.total_utility_bill,
+            monthly_billing.status,
+            monthly_billing.room_id
+        `).
         Joins("JOIN leases ON leases.room_id = monthly_billing.room_id").
         Where("leases.tenant_id = ?", tenantID).
-        Preload("Room").
-        Preload("Payments").
+        Order("monthly_billing.billing_month DESC").
         Find(&invoices).Error
 
     if err != nil {
@@ -35,56 +43,57 @@ func (h *TenantBillingHandler) GetMyInvoices(c *gin.Context) {
     c.JSON(http.StatusOK, invoices)
 }
 
-// ✔ ผู้เช่าดูประวัติการชำระเงิน
+
+// ผู้เช่าดูประวัติการชำระเงินของตนเอง
 func (h *TenantBillingHandler) GetMyPayments(c *gin.Context) {
-    tenantID := c.GetUint("user_id")
+	tenantID := c.GetUint("user_id")
 
-    var payments []models.Payment
-    err := h.db.Where("tenant_id = ?", tenantID).Find(&payments).Error
+	var payments []models.Payment
+	err := h.DB.Where("tenant_id = ?", tenantID).Find(&payments).Error
 
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-    c.JSON(http.StatusOK, payments)
+	c.JSON(http.StatusOK, payments)
 }
 
-// ✔ ผู้เช่าบันทึกการชำระเงิน
+// ผู้เช่าจ่ายบิลของตนเอง
 func (h *TenantBillingHandler) PayInvoice(c *gin.Context) {
-    tenantID := c.GetUint("user_id")
+	tenantID := c.GetUint("user_id")
 
-    var input struct {
-        BillingID  uint    `json:"billing_id"`
-        AmountPaid float64 `json:"amount_paid"`
-        Method     string  `json:"method"` // cash / transfer
-        Notes      string  `json:"notes"`
-    }
-    if err := c.ShouldBindJSON(&input); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	var req struct {
+		BillingID  uint    `json:"billing_id"`
+		AmountPaid float64 `json:"amount_paid"`
+		Method     string  `json:"method"`
+		Notes      string  `json:"notes"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    payment := models.Payment{
-        BillingID:     input.BillingID,
-        TenantID:      tenantID,
-        AmountPaid:    input.AmountPaid,
-        PaymentMethod: input.Method,
-        Notes:         &input.Notes,
-    }
+	p := models.Payment{
+		BillingID:     req.BillingID,
+		TenantID:      tenantID,
+		AmountPaid:    req.AmountPaid,
+		PaymentMethod: req.Method,
+		Notes:         &req.Notes,
+	}
 
-    if err := h.db.Create(&payment).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
+	if err := h.DB.Create(&p).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-    // อัปเดตสถานะ billing
-    h.db.Model(&models.MonthlyBilling{}).
-        Where("billing_id = ?", input.BillingID).
-        Update("status", "paid")
+	// update bill status
+	h.DB.Model(&models.MonthlyBilling{}).
+		Where("billing_id = ?", req.BillingID).
+		Update("status", "paid")
 
-    c.JSON(http.StatusOK, gin.H{
-        "message": "payment recorded",
-        "payment": payment,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"message": "payment recorded",
+		"payment": p,
+	})
 }
