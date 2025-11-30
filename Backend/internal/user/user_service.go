@@ -2,16 +2,19 @@ package user
 
 import (
 	"context"
+	"errors"
+	"os"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/Luemax58/be-fe-project/pkg/models"
+	"golang.org/x/crypto/bcrypt"
 )
 
-// IUserService Interface (ต้องมี GetUserProfile ตรงนี้!)
 type IUserService interface {
 	Login(ctx context.Context, username, password string) (*models.User, string, error)
-
-	// 👇 บรรทัดนี้สำคัญมากครับ ต้องมีเพื่อให้ Handler เรียกใช้ได้
-	GetUserProfile(ctx context.Context, userID uint) (*models.User, error)
+	GetUserByID(ctx context.Context, userID uint) (*models.User, error)
 }
 
 type userService struct {
@@ -22,23 +25,41 @@ func NewUserService(repo IUserRepository) IUserService {
 	return &userService{repo: repo}
 }
 
-// ---------------------------------------------------------
-// Business Logic
-// ---------------------------------------------------------
-
-// Login Logic ... (เหมือนเดิม)
 func (s *userService) Login(ctx context.Context, username, password string) (*models.User, string, error) {
-	// ... (โค้ด Login เดิม) ...
-	// ...
-	// เพื่อความกระชับ ผมละส่วน Login ไว้ (ใช้โค้ดเดิมได้เลย)
-	// ...
-	return nil, "", nil // (placeholder)
+	user, err := s.repo.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return nil, "", errors.New("invalid username or password")
+	}
+
+	token, err := generateJWT(user)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return user, token, nil
 }
 
-// 👇 Implement ฟังก์ชัน GetUserProfile ให้ตรงกับ Interface
-func (s *userService) GetUserProfile(ctx context.Context, userID uint) (*models.User, error) {
-	// เรียกไปที่ Repo (ซึ่ง Repo ชื่อ function คือ GetUserByID)
+func (s *userService) GetUserByID(ctx context.Context, userID uint) (*models.User, error) {
 	return s.repo.GetUserByID(ctx, userID)
 }
 
-// ... (ฟังก์ชัน generateJWT เหมือนเดิม) ...
+func generateJWT(user *models.User) (string, error) {
+	secretKey := os.Getenv("JWT_SECRET_KEY")
+	if secretKey == "" {
+		secretKey = "my-secret-key-1234"
+	}
+
+	claims := jwt.MapClaims{
+		"user_id":  user.UserID,
+		"username": user.Username,
+		"role":     user.Role,
+		"exp":      time.Now().Add(24 * time.Hour).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secretKey))
+}

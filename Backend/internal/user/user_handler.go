@@ -54,37 +54,36 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 // GetMyProfile Handler
 func (h *UserHandler) GetMyProfile(c *gin.Context) {
-	// 1. ดึง UserID จาก Context (ที่ Middleware แปะไว้)
-	userIDRaw, exists := c.Get("user_id") // ชื่อต้องตรงกับที่ Set ใน Middleware
+	// 1. ดึง UserID
+	userIDRaw, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
-	userID := userIDRaw.(uint) // แปลงเป็น uint
+	userID := userIDRaw.(uint)
 
-	// 2. เรียก Service (ซึ่ง Service จะไปเรียก Repo ที่เราเพิ่งแก้ให้ Preload Room)
+	// 2. เรียก Service (✅ ใช้ชื่อ GetUserByID ตามที่มีอยู่จริง)
 	user, err := h.service.GetUserByID(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
 
-	// 3. จัดเตรียมข้อมูลห้อง (ถ้ามี)
+	// 3. เตรียมข้อมูล Room
 	var roomID uint
 	var roomNumber string
-	if user.Room != nil { // เช็กว่า user มีห้องไหม
+	if user.Room != nil {
 		roomID = user.Room.RoomID
 		roomNumber = user.Room.RoomNumber
 	}
 
-	// 4. ส่ง JSON กลับ
+	// 4. ส่ง JSON
 	c.JSON(http.StatusOK, gin.H{
-		"user_id":   user.UserID,
-		"username":  user.Username,
-		"full_name": user.FullName,
-		"phone":     user.Phone,
-		"role":      user.Role,
-		// ข้อมูลห้องที่ดึงมาได้
+		"user_id":     user.UserID,
+		"username":    user.Username,
+		"full_name":   user.FullName,
+		"phone":       user.Phone,
+		"role":        user.Role,
 		"room_id":     roomID,
 		"room_number": roomNumber,
 	})
